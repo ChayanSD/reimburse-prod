@@ -416,13 +416,14 @@ Return only JSON.`;
     const extractedData = JSON.parse(content);
 
     // Validate and return
+    const parsedDate = parseDateRobust(extractedData.receipt_date);
     return {
       merchant_name: String(extractedData.merchant_name || "Unknown Merchant").trim(),
       amount: parseFloat(extractedData.amount) || 0,
       category: ["Meals", "Travel", "Supplies", "Other"].includes(extractedData.category)
         ? extractedData.category
         : "Other",
-      receipt_date: extractedData.receipt_date || new Date().toISOString().split("T")[0],
+      receipt_date: parsedDate || new Date().toISOString().split("T")[0],
       confidence: ["high", "medium", "low"].includes(extractedData.confidence)
         ? extractedData.confidence
         : "medium",
