@@ -35,7 +35,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         merchant_name: receipt.merchantName,
         amount: receipt.amount,
         currency: receipt.currency,
-        receipt_date: receipt.receiptDate,
+        receipt_date: receipt.receiptDate.toISOString().split("T")[0],
         category: receipt.category,
         confidence: receipt.confidence,
         needs_review: receipt.needsReview,

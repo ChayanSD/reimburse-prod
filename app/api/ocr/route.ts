@@ -48,7 +48,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           merchantName: parsedCache.merchant_name,
           amount: parsedCache.amount,
           currency: parsedCache.currency,
-          receiptDate: new Date(parsedCache.receipt_date),
+          receiptDate: new Date(parsedCache.receipt_date.split('T')[0] || parsedCache.receipt_date),
           status: "completed",
           fileUrl: sanitizedFileUrl,
           fileName: sanitizedFilename,

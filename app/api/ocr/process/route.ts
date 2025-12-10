@@ -64,7 +64,13 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     // Process and normalize data
     const merchant = normalizeMerchant(extractedData.merchant_name);
     const currency = normalizeCurrency(extractedData.amount.toString(), "USD");
-    const date = parseDateRobust(extractedData.receipt_date) || extractedData.receipt_date;
+    // Ensure date is always in YYYY-MM-DD format
+    let date = parseDateRobust(extractedData.receipt_date);
+    if (!date) {
+      // If parsing fails, try to extract just the date part from ISO format
+      const isoMatch = extractedData.receipt_date.match(/^(\d{4}-\d{2}-\d{2})/);
+      date = isoMatch ? isoMatch[1] : new Date().toISOString().split("T")[0];
+    }
 
     console.log("Normalized data:", { merchant, amount: currency.amount, date });
 

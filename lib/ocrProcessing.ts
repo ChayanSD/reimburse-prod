@@ -233,6 +233,12 @@ function normalizeMerchant(merchantName: string): string {
 function parseDateRobust(dateString: string): string | null {
   if (!dateString) return null;
 
+  // First, try to extract just the date part from ISO format (YYYY-MM-DDTHH:mm:ss.sssZ)
+  const isoDateMatch = dateString.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDateMatch) {
+    return isoDateMatch[1];
+  }
+
   // Try various date formats
   const formats = [
     /(\d{4})-(\d{1,2})-(\d{1,2})/, // YYYY-MM-DD
