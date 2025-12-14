@@ -41,6 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 
 // Types
 interface User {
@@ -522,9 +524,21 @@ export default function DashboardPage() {
 
   if (userLoading) {
     return (
-      <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-md transition-all duration-300">
+      <div className="relative flex flex-col items-center gap-4">
+        <div className="absolute inset-0 size-20 rounded-full  animate-pulse" />
+        <Spinner className="relative z-10 size-12 text-primary animate-[spin_3s_linear_infinite]" />
+        
+        <div className="flex flex-col items-center gap-1">
+          <h3 className="text-sm font-semibold tracking-widest text-gray-900 uppercase">
+            Loading
+          </h3>
+          <p className="text-xs text-gray-500 animate-pulse">
+            Please wait a moment...
+          </p>
+        </div>
       </div>
+    </div>
     );
   }
 
@@ -796,9 +810,11 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <p className="text-2xl font-bold text-gray-900 capitalize">
-                  {subscriptionLoading
-                    ? "Loading..."
-                    : subscriptionTier || "Free"}
+                  {subscriptionLoading ? (
+                    <Spinner className="size-6" />
+                  ) : (
+                    subscriptionTier || "Free"
+                  )}
                 </p>
                 {(subscriptionTier === "pro" ||
                   subscriptionTier === "premium") && (
@@ -1041,8 +1057,39 @@ export default function DashboardPage() {
             </div>
 
             {loading ? (
-              <div className="p-6 text-center">
-                <div className="text-gray-600">Loading receipts...</div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Merchant
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Category
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}>
+                        <td className="px-6 py-4 whitespace-nowrap"><Skeleton className="h-4 w-20" /></td>
+                        <td className="px-6 py-4 whitespace-nowrap"><Skeleton className="h-4 w-32" /></td>
+                        <td className="px-6 py-4 whitespace-nowrap"><Skeleton className="h-4 w-16" /></td>
+                        <td className="px-6 py-4 whitespace-nowrap"><Skeleton className="h-6 w-20 rounded-lg" /></td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right"><Skeleton className="h-4 w-12 ml-auto" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : error ? (
               <div className="p-6 text-center">
