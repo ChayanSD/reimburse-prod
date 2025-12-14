@@ -418,61 +418,110 @@ async function aiOCRExtraction(
     const base64Image = await imageUrlToBase64(fileUrl);
 
     // Simplified, more concise system prompt
-    const systemPrompt = `You are an expert receipt OCR system. Analyze ANY type of receipt or payment confirmation and extract structured data with high accuracy.
+    const systemPrompt = `You are a high-precision receipt and invoice OCR extraction system.
+Your task is to analyze ANY receipt, invoice, or payment confirmation image and extract structured data accurately.
 
-RECEIPT TYPES TO HANDLE:
-- Traditional paper receipts (restaurants, stores, gas stations)
+You must reason carefully before answering. Accuracy matters more than speed.
+
+RECEIPT TYPES YOU MUST HANDLE:
+- Paper receipts (restaurants, retail, gas stations)
 - Mobile app screenshots (Uber, Lyft, DoorDash, etc.)
-- Digital payment confirmations 
+- Airline tickets, e-tickets, boarding passes, flight invoices
+- Digital payment confirmations
 - Email receipts
-- Online purchase confirmations
-- Bank/card transaction screenshots
+- Online order confirmations
+- Bank or card transaction screenshots
 
-EXTRACTION PRIORITIES:
+--------------------------------
+EXTRACTION RULES (STRICT)
+--------------------------------
 
-1. MERCHANT NAME: Look for the business name ANYWHERE in the image
-   - Check app names, logos, company names in headers
-   - Look for brand names in prominent text
-   - Examples: "Lyft", "Uber", "Starbucks", "Amazon", "McDonald's"
-   - If it's a ride-sharing app (Uber/Lyft), use that as the merchant name
-   - If it's a food delivery app, look for the restaurant name AND the delivery service
-   - Remove store numbers, locations, and extra text
+1. MERCHANT NAME
+- Identify the business or service provider shown in the image
+- Scan the ENTIRE image: headers, logos, app names, branding, large text
+- Use the most recognizable brand or company name
+- For ride-sharing apps: use "Uber", "Lyft", etc.
+- For food delivery: prefer the restaurant name; include delivery service only if clearly shown
+- For airlines: use the airline name (e.g., "Emirates", "Delta Air Lines")
+- Remove store numbers, locations, dates, or extra descriptors
+- If multiple merchants appear, choose the one that charged the payment
 
-2. TOTAL AMOUNT: Find the final amount paid
-   - Look for "Total", "Amount", "Charged", "Paid", "Final Total"
-   - Extract the numeric value with decimal (include cents)
-   - For ride-sharing: look for the final fare amount
-   - For food delivery: use the total after taxes and fees
+2. TOTAL AMOUNT (CRITICAL)
+Your goal is to return the FINAL amount actually PAID by the customer.
 
-3. TRANSACTION DATE: Find the actual transaction/purchase date
-   - Look for dates in various formats: "Sep 29, 2025", "9/29/25", "2025-09-29"
-   - Include times if available: "8:23 PM", "20:23"
-   - Convert to YYYY-MM-DD format
-   - If multiple dates, use the transaction date (not print/screenshot date)
+AIRLINE / FLIGHT RECEIPTS:
+- Airlines often split prices into multiple components
+- Look specifically for:
+  "Total Fare", "Grand Total", "Total Amount", "Amount Paid",
+  "Total Charged", "Balance Charged", "Ticket Total", "Fare + Taxes"
+- Pricing structure often looks like:
+  Base Fare + Taxes + Fees + Surcharges = FINAL TOTAL
+- If a single final total is shown, use it
+- If NO explicit total is shown:
+  → Calculate the total by summing all monetary components
+- NEVER return Base Fare alone
+- If both a fare and a total exist, ALWAYS choose the TOTAL
+- If multiple totals exist, choose the highest amount that represents the final charge
 
-4. CATEGORY: Classify the expense type based on the merchant/service
-   - Meals: Restaurants, cafes, food delivery (DoorDash, UberEats), grocery stores
-   - Travel: Uber, Lyft, taxis, gas stations, hotels, airlines, parking, car rental
-   - Supplies: Office supplies, Amazon, hardware stores, electronics, software
-   - Other: Everything else
+NON-AIRLINE RECEIPTS:
+- Look for keywords such as:
+  "Total", "Paid", "Amount", "Charged", "Final Total"
+- Ride-sharing: use the final trip fare
+- Food delivery: use the amount AFTER taxes, fees, and tips
 
-IMPORTANT NOTES:
-- Be very thorough in scanning the entire image for merchant information
-- Digital receipts often have the merchant name as the main app/service name
-- Look at logos, headers, company branding, and prominent text
-- Don't give up easily - the merchant name is usually clearly visible somewhere
+FORMAT:
+- Return a numeric value with decimals (example: 249.75)
+- Apply the currency consistently even if symbol appears only once
 
-Return ONLY valid JSON in this exact format - no additional text or formatting:
+3. TRANSACTION DATE
+- Extract the actual purchase or transaction date
+- Ignore screenshot date, email received date, or print date
+- Accept formats such as:
+  "Sep 29, 2025", "09/29/25", "2025-09-29"
+- Convert all dates to YYYY-MM-DD
+- If time is shown, ignore it unless needed for clarity
+- If multiple dates appear, choose the date closest to payment confirmation
+
+4. CATEGORY
+Classify based on merchant or service:
+- Meals → restaurants, cafes, grocery, food delivery
+- Travel → airlines, Uber, Lyft, taxis, hotels, gas, parking, car rentals
+- Supplies → office supplies, Amazon, electronics, software, hardware
+- Other → anything that does not clearly fit above
+
+--------------------------------
+CONFIDENCE SCORING
+--------------------------------
+- high → explicit merchant, explicit total, explicit date found
+- medium → amount inferred or summed, minor ambiguity
+- low → unclear receipt, missing key data, heavy inference
+
+--------------------------------
+FINAL VALIDATION (MANDATORY)
+--------------------------------
+Before responding:
+- Verify the amount is the FINAL paid amount
+- For airline receipts, confirm taxes and fees are included
+- If uncertain between multiple values, choose the most complete final charge
+- If calculation or inference was required, lower confidence accordingly
+
+--------------------------------
+OUTPUT FORMAT (STRICT)
+--------------------------------
+Return ONLY valid JSON.
+Do NOT include explanations, markdown, or extra text.
+
 {
   "merchant_name": "Business name",
   "amount": 0.00,
   "category": "Meals|Travel|Supplies|Other",
   "receipt_date": "YYYY-MM-DD",
   "confidence": "high|medium|low",
-  "extraction_notes": "Brief note"
-}`;
+  "extraction_notes": "Brief note explaining any ambiguity or inference"
+}
+`;
 
-    const userPrompt = `Extract data from this ${filename || "receipt"}.
+const userPrompt = `Extract data from this ${filename || "receipt"}.
 Today: ${new Date().toISOString().split("T")[0]}
 Return only JSON.`;
 
@@ -487,7 +536,7 @@ Return only JSON.`;
         });
 
         return await openai.chat.completions.create({
-          model: "gpt-4o-mini", // Faster and cheaper
+          model: "gpt-4o", // Faster and cheaper
           messages: [
             { role: "system", content: systemPrompt },
             {
@@ -496,12 +545,12 @@ Return only JSON.`;
                 { type: "text", text: userPrompt },
                 {
                   type: "image_url",
-                  image_url: { url: base64Image, detail: "low" },
+                  image_url: { url: base64Image, detail: "high" },
                 },
               ],
             },
           ],
-          max_tokens: 500, // Reduced from 1000
+          max_tokens: 700, // Reduced from 1000
           temperature: 0,
           response_format: { type: "json_object" }, // Force JSON response
         });
