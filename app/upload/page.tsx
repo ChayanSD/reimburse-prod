@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useAuth } from "@/lib/hooks/useAuth";
 import AuthGuard from "@/components/AuthGuard";
 import useUpload from "@/utils/useUpload";
-import { Receipt, Upload, FileText, Check, X, ArrowLeft } from "lucide-react";
+import { Receipt, Upload, FileText, Check, X, ArrowLeft, Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -56,6 +56,31 @@ function UploadContent() {
   // State for async processing
   const [receiptId, setReceiptId] = useState<number | null>(null);
   const [processingStatus, setProcessingStatus] = useState<string | null>(null);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingStage, setProcessingStage] = useState("Uploading receipt...");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement).closest('button[aria-label="Toggle menu"]')
+      ) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    if (mobileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [mobileMenuOpen]);
 
   // OCR processing mutation
   const ocrMutation = useMutation({
@@ -69,6 +94,8 @@ function UploadContent() {
     onSuccess: (data) => {
       setReceiptId(data.receipt_id);
       setProcessingStatus("processing");
+      setProcessingProgress(10);
+      setProcessingStage("Queuing receipt for processing...");
       // Start polling for status
       pollReceiptStatus(data.receipt_id);
     },
@@ -89,7 +116,32 @@ function UploadContent() {
 
   // Poll receipt status
   const pollReceiptStatus = async (id: number) => {
+    let pollCount = 0;
+    const maxPolls = 60; // 2 minutes / 2 seconds = 60 polls max
+    
+    // Progress simulation stages
+    const stages = [
+      { progress: 20, stage: "Analyzing receipt image..." },
+      { progress: 40, stage: "Extracting text and data..." },
+      { progress: 60, stage: "Identifying merchant and items..." },
+      { progress: 80, stage: "Validating extracted information..." },
+      { progress: 95, stage: "Finalizing results..." },
+    ];
+
     const pollInterval = setInterval(async () => {
+      pollCount++;
+      
+      // Update progress based on poll count
+      if (pollCount <= stages.length) {
+        const currentStage = stages[Math.min(pollCount - 1, stages.length - 1)];
+        setProcessingProgress(currentStage.progress);
+        setProcessingStage(currentStage.stage);
+      } else {
+        // Gradually increase progress after initial stages
+        const additionalProgress = Math.min(95, 80 + (pollCount - stages.length) * 2);
+        setProcessingProgress(additionalProgress);
+      }
+
       try {
         const response = await axios.get(`/api/ocr/status/${id}`);
         const { status, data } = response.data;
@@ -98,20 +150,26 @@ function UploadContent() {
 
         if (status === "completed" && data) {
           clearInterval(pollInterval);
-          const extractedData: ExtractedData = {
-            merchant_name: data.merchant_name,
-            amount: data.amount,
-            category: data.category,
-            receipt_date: data.receipt_date,
-            confidence: data.confidence,
-            currency: data.currency,
-            extraction_notes: data.notes,
-          };
-          setExtractedData(extractedData);
-          setEditedData(extractedData);
+          setProcessingProgress(100);
+          setProcessingStage("Processing complete!");
+          setTimeout(() => {
+            const extractedData: ExtractedData = {
+              merchant_name: data.merchant_name,
+              amount: data.amount,
+              category: data.category,
+              receipt_date: data.receipt_date,
+              confidence: data.confidence,
+              currency: data.currency,
+              extraction_notes: data.notes,
+            };
+            setExtractedData(extractedData);
+            setEditedData(extractedData);
+            setProcessingStatus(null);
+          }, 500);
         } else if (status === "failed") {
           clearInterval(pollInterval);
           setError("OCR processing failed. You can enter the details manually.");
+          setProcessingStatus(null);
           // Set default data for manual entry
           const defaultData: ExtractedData = {
             merchant_name: "",
@@ -124,16 +182,20 @@ function UploadContent() {
         }
       } catch (error) {
         console.error("Status polling error:", error);
-        clearInterval(pollInterval);
-        setError("Failed to check processing status. You can enter the details manually.");
-        const defaultData: ExtractedData = {
-          merchant_name: "",
-          amount: "",
-          category: "Other",
-          receipt_date: new Date().toISOString().split("T")[0],
-        };
-        setExtractedData(defaultData);
-        setEditedData(defaultData);
+        // Don't clear interval on error, keep trying
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+          setError("Failed to check processing status. You can enter the details manually.");
+          setProcessingStatus(null);
+          const defaultData: ExtractedData = {
+            merchant_name: "",
+            amount: "",
+            category: "Other",
+            receipt_date: new Date().toISOString().split("T")[0],
+          };
+          setExtractedData(defaultData);
+          setEditedData(defaultData);
+        }
       }
     }, 2000); // Poll every 2 seconds
 
@@ -142,6 +204,7 @@ function UploadContent() {
       clearInterval(pollInterval);
       if (processingStatus === "processing") {
         setError("Processing is taking longer than expected. You can enter the details manually.");
+        setProcessingStatus(null);
         const defaultData: ExtractedData = {
           merchant_name: "",
           amount: "",
@@ -218,6 +281,19 @@ function UploadContent() {
       setSuccess(false);
       setExtractedData(null);
       setEditedData(null);
+      
+      // Show progress bar immediately
+      setProcessingProgress(5);
+      setProcessingStage("Uploading receipt...");
+      setProcessingStatus("uploading");
+      
+      // Set a temporary uploaded file state to show progress bar
+      setUploadedFile({
+        url: "",
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      });
 
       // Validate file type
       const allowedTypes = [
@@ -235,11 +311,19 @@ function UploadContent() {
         throw new Error("File size must be less than 10MB");
       }
 
+      // Update progress during upload
+      setProcessingProgress(30);
+      setProcessingStage("Uploading file to server...");
+
       // Upload file using the updated useUpload hook
       const uploadResult = await upload({ file });
       if (uploadResult.error) {
         throw new Error(uploadResult.error);
       }
+
+      // Update progress after upload completes
+      setProcessingProgress(50);
+      setProcessingStage("File uploaded, preparing for AI processing...");
 
       setUploadedFile({
         url: uploadResult.url,
@@ -256,6 +340,9 @@ function UploadContent() {
     } catch (err) {
       console.error("File upload error:", err);
       setError(err instanceof Error ? err.message : "Failed to upload file");
+      setProcessingStatus(null);
+      setProcessingProgress(0);
+      setUploadedFile(null);
     }
   };
 
@@ -313,6 +400,10 @@ function UploadContent() {
     setEditedData(null);
     setError(null);
     setSuccess(false);
+    setProcessingProgress(0);
+    setProcessingStage("Uploading receipt...");
+    setProcessingStatus(null);
+    setReceiptId(null);
   };
 
   // Loading states
@@ -337,42 +428,72 @@ function UploadContent() {
         style={{ fontFamily: "Inter, system-ui, sans-serif" }}
       >
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+        <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 relative">
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
               <Link
                 href="/dashboard"
-                className="text-gray-600 hover:text-gray-800"
+                className="text-gray-600 hover:text-gray-800 shrink-0"
               >
-                <ArrowLeft size={24} />
+                <ArrowLeft size={20} />
               </Link>
               <Image
                 src="https://ucarecdn.com/6b43f5cf-10b4-4838-b2ba-397c0a896734/-/format/auto/"
                 alt="ReimburseMe Logo"
-                className="w-10 h-10"
+                className="w-8 h-8 sm:w-10 sm:h-10 shrink-0"
                 width={40}
                 height={40}
               />
-              <div>
+              <div className="min-w-0 flex-1">
                 <h1
-                  className="text-xl font-bold text-gray-900"
+                  className="text-lg sm:text-xl font-bold text-gray-900"
                   style={{ fontFamily: "Poppins, sans-serif" }}
                 >
                   Upload Receipt
                 </h1>
-                <p className="text-sm text-gray-600">
+                <p className="text-xs sm:text-sm text-gray-600">
                   Upload and process your receipt
                 </p>
               </div>
             </div>
 
+            {/* Desktop Navigation */}
             <Link
               href="/dashboard"
-              className="text-gray-600 hover:text-gray-800 font-medium"
+              className="hidden sm:block text-gray-600 hover:text-gray-800 font-medium whitespace-nowrap"
             >
               Back to Dashboard
             </Link>
+
+            {/* Mobile Burger Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="sm:hidden p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? (
+                <X size={24} />
+              ) : (
+                <Menu size={24} />
+              )}
+            </button>
           </div>
+
+          {/* Mobile Menu Dropdown */}
+          {mobileMenuOpen && (
+            <div ref={mobileMenuRef} className="sm:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50">
+              <div className="px-4 py-3">
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-medium rounded-lg transition-colors"
+                >
+                  <ArrowLeft size={18} />
+                  Back to Dashboard
+                </Link>
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Main Content */}
@@ -496,23 +617,52 @@ function UploadContent() {
                 </div>
               </div>
 
-              {/* OCR Processing */}
-              {(isOcrLoading || processingStatus === "processing") && (
-                <div className="bg-white rounded-3xl p-6 border border-gray-200 text-center">
-                  <div className="w-12 h-12 bg-[#2E86DE] bg-opacity-10 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-                    <Receipt size={24} className="text-[#2E86DE]" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Processing Receipt...
-                  </h3>
-                  <p className="text-gray-600">
-                    AI is extracting data from your receipt
-                  </p>
-                  {receiptId && (
-                    <p className="text-sm text-gray-500 mt-2">
-                      Receipt ID: {receiptId}
+              {/* Upload & OCR Processing */}
+              {(isOcrLoading || processingStatus === "processing" || processingStatus === "uploading") && (
+                <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200">
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-[#2E86DE] bg-opacity-10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Receipt size={32} className="text-[#2E86DE] animate-pulse" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      Processing Receipt with AI
+                    </h3>
+                    <p className="text-gray-600 mb-1">
+                      {processingStage}
                     </p>
-                  )}
+                    {receiptId && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Receipt ID: {receiptId}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 font-medium">Progress</span>
+                      <span className="text-[#2E86DE] font-semibold">{processingProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="bg-linear-to-r from-[#2E86DE] to-[#2574C7] h-3 rounded-full transition-all duration-500 ease-out flex items-center justify-end pr-2"
+                        style={{ width: `${processingProgress}%` }}
+                      >
+                        {processingProgress > 15 && (
+                          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Processing Steps Indicator */}
+                  <div className="mt-6 flex items-center justify-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${processingProgress >= 20 ? 'bg-[#2E86DE]' : 'bg-gray-300'}`}></div>
+                    <div className={`w-2 h-2 rounded-full ${processingProgress >= 40 ? 'bg-[#2E86DE]' : 'bg-gray-300'}`}></div>
+                    <div className={`w-2 h-2 rounded-full ${processingProgress >= 60 ? 'bg-[#2E86DE]' : 'bg-gray-300'}`}></div>
+                    <div className={`w-2 h-2 rounded-full ${processingProgress >= 80 ? 'bg-[#2E86DE]' : 'bg-gray-300'}`}></div>
+                    <div className={`w-2 h-2 rounded-full ${processingProgress >= 95 ? 'bg-[#2E86DE]' : 'bg-gray-300'}`}></div>
+                  </div>
                 </div>
               )}
 
