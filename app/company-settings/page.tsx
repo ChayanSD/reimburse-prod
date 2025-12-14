@@ -48,9 +48,6 @@ interface CompanySetting {
   updatedAt: string;
 }
 
-interface CompanySettingsResponse {
-  settings: CompanySetting[];
-}
 
 interface ApiResponse<T> {
   success?: boolean;
@@ -98,9 +95,9 @@ const apiClient = axios.create({
   baseURL: '/api',
 });
 
-const fetchCompanySettings = async (): Promise<CompanySettingsResponse> => {
-  const response = await apiClient.get<CompanySettingsResponse>('/company-settings');
-  return response.data;
+const fetchCompanySettings = async (): Promise<CompanySetting[]> => {
+  const response = await apiClient.get<{ settings: CompanySetting[] }>('/company-settings');
+  return response.data.settings || [];
 };
 
 const createOrUpdateCompanySetting = async (data: FormData): Promise<ApiResponse<CompanySetting>> => {
@@ -150,18 +147,16 @@ export default function CompanySettingsPage() {
   });
 
   // React Query hooks
-  const { 
-    data: settingsResponse, 
-    isLoading: loading, 
-    error 
-  } = useQuery({
+  const {
+    data: settings = [],
+    isLoading: loading,
+    error
+  } = useQuery<CompanySetting[]>({
     queryKey: ['company-settings'],
     queryFn: fetchCompanySettings,
     enabled: !!user,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
-
-  const settings = settingsResponse?.settings || [];
 
   const saveMutation = useMutation({
     mutationFn: createOrUpdateCompanySetting,
