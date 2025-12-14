@@ -13,7 +13,10 @@ interface ExtractedData {
   currency?: string;
 }
 
-function validateAndFixDate(dateString: string, filename = ""): { date: string; confidence: string } {
+function validateAndFixDate(
+  dateString: string,
+  filename = ""
+): { date: string; confidence: string } {
   const today = new Date();
   try {
     let parsedDate = new Date(dateString);
@@ -21,22 +24,34 @@ function validateAndFixDate(dateString: string, filename = ""): { date: string; 
     if (isNaN(parsedDate.getTime())) {
       const formats = [
         /(\d{1,2})\/(\d{1,2})\/(\d{4})/, // MM/DD/YYYY
-        /(\d{1,2})-(\d{1,2})-(\d{4})/,  // MM-DD-YYYY
+        /(\d{1,2})-(\d{1,2})-(\d{4})/, // MM-DD-YYYY
       ];
 
       for (const format of formats) {
         const match = dateString.match(format);
         if (match) {
-          parsedDate = new Date(parseInt(match[3]), parseInt(match[1]) - 1, parseInt(match[2]));
+          parsedDate = new Date(
+            parseInt(match[3]),
+            parseInt(match[1]) - 1,
+            parseInt(match[2])
+          );
           break;
         }
       }
     }
 
-    const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+    const oneYearAgo = new Date(
+      today.getFullYear() - 1,
+      today.getMonth(),
+      today.getDate()
+    );
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
 
-    if (isNaN(parsedDate.getTime()) || parsedDate > tomorrow || parsedDate < oneYearAgo) {
+    if (
+      isNaN(parsedDate.getTime()) ||
+      parsedDate > tomorrow ||
+      parsedDate < oneYearAgo
+    ) {
       return generateReasonableDate(filename);
     }
 
@@ -118,7 +133,10 @@ function generateReasonableDate(filename = ""): {
 function enhancedPatternExtraction(filename = ""): ExtractedData {
   const lowerFilename = filename.toLowerCase();
 
-  const merchantPatterns: Record<string, { name: string; category: string; avgAmount: [number, number] }> = {
+  const merchantPatterns: Record<
+    string,
+    { name: string; category: string; avgAmount: [number, number] }
+  > = {
     starbucks: { name: "Starbucks", category: "Meals", avgAmount: [4, 12] },
     coffee: { name: "Coffee Shop", category: "Meals", avgAmount: [3, 8] },
     dunkin: { name: "Dunkin", category: "Meals", avgAmount: [3, 10] },
@@ -141,16 +159,40 @@ function enhancedPatternExtraction(filename = ""): ExtractedData {
     motel: { name: "Motel", category: "Travel", avgAmount: [50, 150] },
     marriott: { name: "Marriott", category: "Travel", avgAmount: [100, 400] },
     hilton: { name: "Hilton", category: "Travel", avgAmount: [100, 400] },
-    delta: { name: "Delta Air Lines", category: "Travel", avgAmount: [200, 800] },
-    american: { name: "American Airlines", category: "Travel", avgAmount: [200, 800] },
-    southwest: { name: "Southwest Airlines", category: "Travel", avgAmount: [150, 600] },
-    united: { name: "United Airlines", category: "Travel", avgAmount: [200, 800] },
+    delta: {
+      name: "Delta Air Lines",
+      category: "Travel",
+      avgAmount: [200, 800],
+    },
+    american: {
+      name: "American Airlines",
+      category: "Travel",
+      avgAmount: [200, 800],
+    },
+    southwest: {
+      name: "Southwest Airlines",
+      category: "Travel",
+      avgAmount: [150, 600],
+    },
+    united: {
+      name: "United Airlines",
+      category: "Travel",
+      avgAmount: [200, 800],
+    },
     parking: { name: "Parking", category: "Travel", avgAmount: [5, 30] },
-    office: { name: "Office Depot", category: "Supplies", avgAmount: [15, 100] },
+    office: {
+      name: "Office Depot",
+      category: "Supplies",
+      avgAmount: [15, 100],
+    },
     staples: { name: "Staples", category: "Supplies", avgAmount: [15, 100] },
     depot: { name: "Office Depot", category: "Supplies", avgAmount: [15, 100] },
     amazon: { name: "Amazon", category: "Supplies", avgAmount: [10, 200] },
-    "best buy": { name: "Best Buy", category: "Supplies", avgAmount: [20, 500] },
+    "best buy": {
+      name: "Best Buy",
+      category: "Supplies",
+      avgAmount: [20, 500],
+    },
     costco: { name: "Costco", category: "Supplies", avgAmount: [50, 300] },
     walmart: { name: "Walmart", category: "Supplies", avgAmount: [10, 150] },
     target: { name: "Target", category: "Supplies", avgAmount: [15, 200] },
@@ -164,7 +206,8 @@ function enhancedPatternExtraction(filename = ""): ExtractedData {
   )?.[1];
 
   const [min = 5, max = 50] = matchedMerchant?.avgAmount || [5, 50];
-  const amount = Math.round((Math.random() * (max - min) + min + Math.random()) * 100) / 100;
+  const amount =
+    Math.round((Math.random() * (max - min) + min + Math.random()) * 100) / 100;
 
   const dateResult = generateReasonableDate(filename);
 
@@ -327,7 +370,7 @@ async function imageUrlToBase64(imageUrl: string): Promise<string> {
         "User-Agent": "Mozilla/5.0", // Some CDNs require this
       },
     });
-    
+
     clearTimeout(timeout);
 
     if (!response.ok) {
@@ -342,11 +385,13 @@ async function imageUrlToBase64(imageUrl: string): Promise<string> {
       throw new Error(`Unsupported file type: ${contentType}`);
     }
 
-    const base64Data = `data:${contentType};base64,${buffer.toString("base64")}`;
-    
+    const base64Data = `data:${contentType};base64,${buffer.toString(
+      "base64"
+    )}`;
+
     // Cache the result
     imageCache.set(imageUrl, { data: base64Data, timestamp: Date.now() });
-    
+
     // Clean old cache entries
     if (imageCache.size > 100) {
       const entries = Array.from(imageCache.entries());
@@ -373,7 +418,51 @@ async function aiOCRExtraction(
     const base64Image = await imageUrlToBase64(fileUrl);
 
     // Simplified, more concise system prompt
-    const systemPrompt = `Extract receipt data as JSON. Return ONLY JSON, no extra text:
+    const systemPrompt = `You are an expert receipt OCR system. Analyze ANY type of receipt or payment confirmation and extract structured data with high accuracy.
+
+RECEIPT TYPES TO HANDLE:
+- Traditional paper receipts (restaurants, stores, gas stations)
+- Mobile app screenshots (Uber, Lyft, DoorDash, etc.)
+- Digital payment confirmations 
+- Email receipts
+- Online purchase confirmations
+- Bank/card transaction screenshots
+
+EXTRACTION PRIORITIES:
+
+1. MERCHANT NAME: Look for the business name ANYWHERE in the image
+   - Check app names, logos, company names in headers
+   - Look for brand names in prominent text
+   - Examples: "Lyft", "Uber", "Starbucks", "Amazon", "McDonald's"
+   - If it's a ride-sharing app (Uber/Lyft), use that as the merchant name
+   - If it's a food delivery app, look for the restaurant name AND the delivery service
+   - Remove store numbers, locations, and extra text
+
+2. TOTAL AMOUNT: Find the final amount paid
+   - Look for "Total", "Amount", "Charged", "Paid", "Final Total"
+   - Extract the numeric value with decimal (include cents)
+   - For ride-sharing: look for the final fare amount
+   - For food delivery: use the total after taxes and fees
+
+3. TRANSACTION DATE: Find the actual transaction/purchase date
+   - Look for dates in various formats: "Sep 29, 2025", "9/29/25", "2025-09-29"
+   - Include times if available: "8:23 PM", "20:23"
+   - Convert to YYYY-MM-DD format
+   - If multiple dates, use the transaction date (not print/screenshot date)
+
+4. CATEGORY: Classify the expense type based on the merchant/service
+   - Meals: Restaurants, cafes, food delivery (DoorDash, UberEats), grocery stores
+   - Travel: Uber, Lyft, taxis, gas stations, hotels, airlines, parking, car rental
+   - Supplies: Office supplies, Amazon, hardware stores, electronics, software
+   - Other: Everything else
+
+IMPORTANT NOTES:
+- Be very thorough in scanning the entire image for merchant information
+- Digital receipts often have the merchant name as the main app/service name
+- Look at logos, headers, company branding, and prominent text
+- Don't give up easily - the merchant name is usually clearly visible somewhere
+
+Return ONLY valid JSON in this exact format - no additional text or formatting:
 {
   "merchant_name": "Business name",
   "amount": 0.00,
@@ -392,7 +481,7 @@ Return only JSON.`;
       "openai",
       "vision_analysis",
       async () => {
-        const openai = new OpenAI({ 
+        const openai = new OpenAI({
           apiKey: SecureKeyStore.getKey("openai"),
           timeout: 30000, // 30s timeout
         });
@@ -405,7 +494,10 @@ Return only JSON.`;
               role: "user",
               content: [
                 { type: "text", text: userPrompt },
-                { type: "image_url", image_url: { url: base64Image, detail: "low" } },
+                {
+                  type: "image_url",
+                  image_url: { url: base64Image, detail: "low" },
+                },
               ],
             },
           ],
@@ -424,9 +516,13 @@ Return only JSON.`;
     // Validate and return
     const parsedDate = parseDateRobust(extractedData.receipt_date);
     return {
-      merchant_name: String(extractedData.merchant_name || "Unknown Merchant").trim(),
+      merchant_name: String(
+        extractedData.merchant_name || "Unknown Merchant"
+      ).trim(),
       amount: parseFloat(extractedData.amount) || 0,
-      category: ["Meals", "Travel", "Supplies", "Other"].includes(extractedData.category)
+      category: ["Meals", "Travel", "Supplies", "Other"].includes(
+        extractedData.category
+      )
         ? extractedData.category
         : "Other",
       receipt_date: parsedDate || new Date().toISOString().split("T")[0],

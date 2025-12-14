@@ -26,18 +26,17 @@ export default function Testimonial() {
                 </div>
 
                 {/* Testimonial Quote */}
-                <blockquote
-                  className="text-[28px] md:text-[40px] leading-[1.2] text-gray-900 mb-6 md:mb-10"
-                  style={{
-                    fontFamily: "Poppins, serif",
-                    fontWeight: 500,
-                  }}
-                >
-                  `&quot;`ReimburseMe saved me hours every month. No more
-                  digging`&quot;` through receipts or manual spreadsheets. The
-                  OCR is incredibly`&quot;` accurate and the reports look
-                  professional.&quot;`
-                </blockquote>
+               <blockquote
+                    className="text-[28px] md:text-[40px] leading-[1.2] text-gray-900 mb-6 md:mb-10"
+                    style={{
+                      fontFamily: "Poppins, serif",
+                      fontWeight: 500,
+                    }}
+                  >
+                    ReimburseMe saved me hours every month. No more digging through receipts or
+                    manual spreadsheets. The OCR is incredibly accurate and the reports look
+                    professional.
+              </blockquote>
 
                 {/* Author Block */}
                 <div className="space-y-1">
