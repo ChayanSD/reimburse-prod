@@ -250,7 +250,7 @@ export default function DashboardPage() {
   });
 
   const { data: companySettings = [] } = useQuery<CompanySetting[]>({
-    queryKey: ["companySettings"],
+    queryKey: ['company-settings'],
     queryFn: fetchCompanySettings,
     enabled: !!user,
     select: (data) => {

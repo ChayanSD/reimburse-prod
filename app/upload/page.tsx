@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useAuth } from "@/lib/hooks/useAuth";
 import AuthGuard from "@/components/AuthGuard";
@@ -42,6 +42,7 @@ export default function UploadPage() {
 
 function UploadContent() {
   const { isLoading: userLoading } = useAuth();
+  const queryClient = useQueryClient();
   const [upload, { loading: uploadLoading }] = useUpload();
   
   // State management
@@ -167,6 +168,7 @@ function UploadContent() {
     },
     onSuccess: () => {
       setSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ["receipts"] });
       // Reset form after 2 seconds
       setTimeout(() => {
         setUploadedFile(null);

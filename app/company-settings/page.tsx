@@ -288,6 +288,7 @@ export default function CompanySettingsPage() {
     }
 
     saveMutation.mutate(updatedFormData);
+
   };
 
   const handleDelete = async (settingId: number) => {
