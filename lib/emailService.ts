@@ -92,16 +92,6 @@ export async function sendProcessingCompleteEmail(emailData: EmailData): Promise
             margin-bottom: 24px;
             box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);
           }
-          .success-icon {
-            width: 20px;
-            height: 20px;
-            background-color: rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-          }
           .intro-text {
             font-size: 16px;
             color: #4b5563;
@@ -228,13 +218,12 @@ export async function sendProcessingCompleteEmail(emailData: EmailData): Promise
                   <img src="https://ucarecdn.com/6b43f5cf-10b4-4838-b2ba-397c0a896734/-/format/auto/" alt="ReimburseMe Logo" />
                 </div>
               </div>
-              <h1 class="header-title">Processing Complete! 🎉</h1>
+              <h1 class="header-title">Processing Complete!</h1>
               <p class="header-subtitle">Your receipt has been successfully analyzed</p>
             </div>
             
             <div class="content">
               <div class="success-badge">
-                <span class="success-icon">✓</span>
                 Successfully Processed
               </div>
               
@@ -244,23 +233,23 @@ export async function sendProcessingCompleteEmail(emailData: EmailData): Promise
               
               <div class="receipt-card">
                 <div class="detail-row">
-                  <span class="detail-label">Merchant</span>
+                  <span class="detail-label">Merchant Name :</span>
                   <span class="detail-value">${merchantName}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">Amount</span>
+                  <span class="detail-label">Amount :</span>
                   <span class="detail-value amount-highlight">$${amount.toFixed(2)}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">Category</span>
+                  <span class="detail-label">Category :</span>
                   <span class="detail-value">${category}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">Date</span>
+                  <span class="detail-label">Date :</span>
                   <span class="detail-value">${receiptDate}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">File Name</span>
+                  <span class="detail-label">File Name :</span>
                   <span class="detail-value">${fileName}</span>
                 </div>
               </div>
