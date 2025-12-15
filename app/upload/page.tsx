@@ -6,7 +6,7 @@ import axios from "axios";
 import { useAuth } from "@/lib/hooks/useAuth";
 import AuthGuard from "@/components/AuthGuard";
 import useUpload from "@/utils/useUpload";
-import { Receipt, Upload, FileText, Check, X, ArrowLeft, Menu } from "lucide-react";
+import { Receipt, Upload, FileText, Check, X, ArrowLeft, Menu, Clock, Zap, Brain, FileSearch, CheckCircle, AlertCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -58,6 +58,9 @@ function UploadContent() {
   const [processingStatus, setProcessingStatus] = useState<string | null>(null);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingStage, setProcessingStage] = useState("Uploading receipt...");
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string>("");
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [emailNotificationSent, setEmailNotificationSent] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -82,6 +85,21 @@ function UploadContent() {
     };
   }, [mobileMenuOpen]);
 
+  // Email notification mutation
+  const emailMutation = useMutation({
+    mutationFn: async ({ type, data }: { type: string; data: Record<string, unknown> }) => {
+      const response = await axios.post("/api/notifications/email", {
+        type,
+        data,
+      });
+      return response.data;
+    },
+    onError: (err: Error | unknown) => {
+      console.error("Email notification error:", err);
+      // Don't fail the whole process if email fails
+    },
+  });
+
   // OCR processing mutation
   const ocrMutation = useMutation({
     mutationFn: async ({ fileUrl, filename }: { fileUrl: string; filename: string }) => {
@@ -91,17 +109,32 @@ function UploadContent() {
       });
       return response.data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
+      const { filename } = variables;
       setReceiptId(data.receipt_id);
       setProcessingStatus("processing");
       setProcessingProgress(10);
       setProcessingStage("Queuing receipt for processing...");
+      setStartTime(new Date());
+      setEmailNotificationSent(false);
       // Start polling for status
-      pollReceiptStatus(data.receipt_id);
+      pollReceiptStatus(data.receipt_id, filename);
     },
     onError: (err: Error | unknown) => {
       console.error("OCR error:", err);
       setError("Failed to queue receipt for processing. You can enter the details manually.");
+      
+      // Send failure email notification
+      if (uploadedFile && !emailNotificationSent) {
+        emailMutation.mutate({
+          type: 'processing_failed',
+          data: {
+            fileName: uploadedFile.name,
+            errorMessage: "Failed to queue receipt for processing",
+          }
+        });
+      }
+      
       // Set default data for manual entry
       const defaultData: ExtractedData = {
         merchant_name: "",
@@ -115,21 +148,34 @@ function UploadContent() {
   });
 
   // Poll receipt status
-  const pollReceiptStatus = async (id: number) => {
+  const pollReceiptStatus = async (id: number, filename: string) => {
     let pollCount = 0;
     const maxPolls = 60; // 2 minutes / 2 seconds = 60 polls max
     
-    // Progress simulation stages
+    // Progress simulation stages with icons
     const stages = [
-      { progress: 20, stage: "Analyzing receipt image..." },
-      { progress: 40, stage: "Extracting text and data..." },
-      { progress: 60, stage: "Identifying merchant and items..." },
-      { progress: 80, stage: "Validating extracted information..." },
-      { progress: 95, stage: "Finalizing results..." },
+      { progress: 20, stage: "Analyzing receipt image...", icon: FileSearch },
+      { progress: 40, stage: "Extracting text and data...", icon: Brain },
+      { progress: 60, stage: "Identifying merchant and items...", icon: Receipt },
+      { progress: 80, stage: "Validating extracted information...", icon: CheckCircle },
+      { progress: 95, stage: "Finalizing results...", icon: Zap },
     ];
 
     const pollInterval = setInterval(async () => {
       pollCount++;
+      
+      // Update estimated time remaining
+      if (startTime) {
+        const remainingPolls = maxPolls - pollCount;
+        const estimatedRemainingSeconds = remainingPolls * 2; // 2 seconds per poll
+        const minutes = Math.floor(estimatedRemainingSeconds / 60);
+        const seconds = estimatedRemainingSeconds % 60;
+        setEstimatedTimeRemaining(
+          estimatedRemainingSeconds > 60
+            ? `~${minutes}m ${seconds}s remaining`
+            : `${seconds}s remaining`
+        );
+      }
       
       // Update progress based on poll count
       if (pollCount <= stages.length) {
@@ -140,6 +186,7 @@ function UploadContent() {
         // Gradually increase progress after initial stages
         const additionalProgress = Math.min(95, 80 + (pollCount - stages.length) * 2);
         setProcessingProgress(additionalProgress);
+        setProcessingStage("Processing receipt...");
       }
 
       try {
@@ -152,6 +199,23 @@ function UploadContent() {
           clearInterval(pollInterval);
           setProcessingProgress(100);
           setProcessingStage("Processing complete!");
+          setEstimatedTimeRemaining("");
+          
+          // Send email notification if not already sent
+          if (!emailNotificationSent) {
+            emailMutation.mutate({
+              type: 'processing_complete',
+              data: {
+                merchantName: data.merchant_name,
+                amount: parseFloat(data.amount),
+                category: data.category,
+                receiptDate: data.receipt_date,
+                fileName: filename,
+              }
+            });
+            setEmailNotificationSent(true);
+          }
+          
           setTimeout(() => {
             const extractedData: ExtractedData = {
               merchant_name: data.merchant_name,
@@ -165,9 +229,25 @@ function UploadContent() {
             setExtractedData(extractedData);
             setEditedData(extractedData);
             setProcessingStatus(null);
-          }, 500);
+          }, 1000);
         } else if (status === "failed") {
           clearInterval(pollInterval);
+          setProcessingProgress(100);
+          setEstimatedTimeRemaining("");
+          setProcessingStage("Processing failed");
+          
+          // Send failure email notification
+          if (!emailNotificationSent) {
+            emailMutation.mutate({
+              type: 'processing_failed',
+              data: {
+                fileName: filename,
+                errorMessage: "OCR processing failed",
+              }
+            });
+            setEmailNotificationSent(true);
+          }
+          
           setError("OCR processing failed. You can enter the details manually.");
           setProcessingStatus(null);
           // Set default data for manual entry
@@ -185,6 +265,9 @@ function UploadContent() {
         // Don't clear interval on error, keep trying
         if (pollCount >= maxPolls) {
           clearInterval(pollInterval);
+          setProcessingProgress(100);
+          setEstimatedTimeRemaining("");
+          setProcessingStage("Processing timeout");
           setError("Failed to check processing status. You can enter the details manually.");
           setProcessingStatus(null);
           const defaultData: ExtractedData = {
@@ -203,6 +286,9 @@ function UploadContent() {
     setTimeout(() => {
       clearInterval(pollInterval);
       if (processingStatus === "processing") {
+        setProcessingProgress(100);
+        setEstimatedTimeRemaining("");
+        setProcessingStage("Processing timeout");
         setError("Processing is taking longer than expected. You can enter the details manually.");
         setProcessingStatus(null);
         const defaultData: ExtractedData = {
@@ -404,6 +490,9 @@ function UploadContent() {
     setProcessingStage("Uploading receipt...");
     setProcessingStatus(null);
     setReceiptId(null);
+    setEstimatedTimeRemaining("");
+    setStartTime(null);
+    setEmailNotificationSent(false);
   };
 
   // Loading states
@@ -500,29 +589,42 @@ function UploadContent() {
         <main className="max-w-4xl mx-auto px-6 py-8">
           {success ? (
             <div className="bg-white rounded-3xl p-8 border border-gray-200 text-center">
-              <div className="w-16 h-16 bg-[#10B981] rounded-full flex items-center justify-center mx-auto mb-4">
-                <Check size={32} className="text-white" />
+              <div className="w-20 h-20 bg-linear-to-br from-[#10B981] to-[#059669] rounded-full flex items-center justify-center mx-auto mb-6 relative overflow-hidden">
+                <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                <Check size={36} className="text-white relative z-10" />
               </div>
+              
               <h2
-                className="text-2xl font-bold text-gray-900 mb-2"
+                className="text-2xl font-bold text-gray-900 mb-3"
                 style={{ fontFamily: "Poppins, sans-serif" }}
               >
                 Receipt Saved Successfully!
               </h2>
-              <p className="text-gray-600 mb-6">
+              
+              <p className="text-gray-600 mb-4">
                 Your receipt has been processed and added to your dashboard.
               </p>
-              <div className="flex gap-4 justify-center">
+              
+              {emailNotificationSent && (
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm font-medium mb-6">
+                  <CheckCircle size={16} />
+                  <span>Email notification sent!</span>
+                </div>
+              )}
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
                   onClick={resetUpload}
-                  className="px-6 py-3 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-2xl transition-colors"
+                  className="px-6 py-3 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-2xl transition-colors flex items-center justify-center gap-2"
                 >
+                  <Upload size={18} />
                   Upload Another Receipt
                 </button>
                 <Link
                   href="/dashboard"
-                  className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-2xl transition-colors"
+                  className="px-6 py-3 border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-2xl transition-colors flex items-center justify-center gap-2"
                 >
+                  <FileText size={18} />
                   View Dashboard
                 </Link>
               </div>
@@ -550,8 +652,25 @@ function UploadContent() {
                   disabled={uploadLoading}
                 />
 
-                <div className="w-16 h-16 bg-[#2E86DE]/20 bg-opacity-10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Upload size={32} className="text-[#2E86DE]" />
+                <div className="relative">
+                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-all duration-300 ${
+                    dragActive
+                      ? 'bg-linear-to-br from-[#2E86DE] to-[#2574C7] shadow-lg transform scale-105'
+                      : 'bg-[#2E86DE]/20'
+                  }`}>
+                    <Upload size={36} className={`transition-colors duration-300 ${
+                      dragActive ? 'text-white' : 'text-[#2E86DE]'
+                    }`} />
+                    
+                    {/* Floating upload particles when active */}
+                    {dragActive && (
+                      <>
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-white/60 rounded-full animate-bounce"></div>
+                        <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
+                        <div className="absolute top-1 -left-2 w-1 h-1 bg-white/80 rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <h3
@@ -559,19 +678,26 @@ function UploadContent() {
                   style={{ fontFamily: "Poppins, sans-serif" }}
                 >
                   {dragActive
-                    ? "Drop your receipt here"
-                    : "Upload your receipt"}
+                    ? "📋 Drop your receipt here"
+                    : "📤 Upload your receipt"}
                 </h3>
 
-                <p className="text-gray-600 mb-6">
-                  Drag and drop your receipt or click to browse files
-                  <br />
-                  Supports JPEG, PNG, and PDF files up to 10MB
-                </p>
+                <div className="text-gray-600 mb-6 space-y-2">
+                  <p className="flex items-center justify-center gap-2">
+                    Drag and drop your receipt or click to browse files
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Supports JPEG, PNG, and PDF files up to 10MB
+                  </p>
+                </div>
 
                 <label
                   htmlFor="file-upload"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-2xl transition-colors cursor-pointer"
+                  className={`inline-flex items-center gap-2 px-8 py-3 font-medium rounded-2xl transition-all duration-300 cursor-pointer ${
+                    dragActive
+                      ? 'bg-[#2574C7] text-white shadow-lg transform scale-105'
+                      : 'bg-[#2E86DE] hover:bg-[#2574C7] text-white hover:shadow-md'
+                  }`}
                 >
                   <Upload size={18} />
                   {uploadLoading ? "Uploading..." : "Choose File"}
@@ -621,48 +747,133 @@ function UploadContent() {
               {(isOcrLoading || processingStatus === "processing" || processingStatus === "uploading") && (
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200">
                   <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-[#2E86DE]/20 bg-opacity-10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <Receipt size={32} className="text-[#2E86DE] animate-pulse" />
+                    {/* Animated Processing Icon */}
+                    <div className="w-20 h-20 bg-linear-to-br from-[#2E86DE]/20 to-[#2574C7]/20 rounded-2xl flex items-center justify-center mx-auto mb-4 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                      <Receipt size={36} className="text-[#2E86DE] relative z-10 animate-pulse" />
+                      
+                      {/* Floating particles */}
+                      {processingProgress > 0 && (
+                        <>
+                          <div className="absolute top-2 right-3 w-1 h-1 bg-[#2E86DE] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="absolute top-4 left-3 w-1 h-1 bg-[#2574C7] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                          <div className="absolute bottom-3 right-4 w-1 h-1 bg-[#2E86DE] rounded-full animate-bounce" style={{ animationDelay: '600ms' }}></div>
+                          <div className="absolute bottom-2 left-2 w-1 h-1 bg-[#2574C7] rounded-full animate-bounce" style={{ animationDelay: '900ms' }}></div>
+                        </>
+                      )}
                     </div>
+                    
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      Processing Receipt with AI
+                      {processingStatus === "uploading" ? "Uploading Receipt" : "AI Processing in Progress"}
                     </h3>
-                    <p className="text-gray-600 mb-1">
-                      {processingStage}
-                    </p>
+                    
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <div className="w-2 h-2 bg-[#2E86DE] rounded-full animate-pulse"></div>
+                      <p className="text-gray-600 font-medium">
+                        {processingStage}
+                      </p>
+                    </div>
+                    
+                    {estimatedTimeRemaining && (
+                      <div className="flex items-center justify-center gap-1 text-sm text-[#2E86DE] font-medium mb-2">
+                        <Clock size={16} />
+                        <span>{estimatedTimeRemaining}</span>
+                      </div>
+                    )}
+                    
                     {receiptId && (
-                      <p className="text-sm text-gray-500 mt-2">
+                      <p className="text-xs text-gray-500 mt-2">
                         Receipt ID: {receiptId}
                       </p>
                     )}
                   </div>
 
-                  {/* Progress Bar */}
-                  <div className="space-y-2">
+                  {/* Enhanced Progress Bar */}
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600 font-medium">Progress</span>
-                      <span className="text-[#2E86DE] font-semibold">{processingProgress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                      <div
-                        className="bg-linear-to-r from-[#2E86DE] to-[#2574C7] h-3 rounded-full transition-all duration-500 ease-out flex items-center justify-end pr-2"
-                        style={{ width: `${processingProgress}%` }}
-                      >
-                        {processingProgress > 15 && (
-                          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#2E86DE] font-semibold">{processingProgress}%</span>
+                        {processingProgress < 100 && (
+                          <div className="w-4 h-4 border-2 border-[#2E86DE] border-t-transparent rounded-full animate-spin"></div>
                         )}
+                      </div>
+                    </div>
+                    
+                    <div className="relative">
+                      <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
+                        <div
+                          className="bg-linear-to-r from-[#2E86DE] via-[#2574C7] to-[#1E5AA8] h-4 rounded-full transition-all duration-700 ease-out flex items-center justify-end relative overflow-hidden"
+                          style={{ width: `${processingProgress}%` }}
+                        >
+                          {/* Animated shimmer effect */}
+                          <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                          
+                          {/* Progress indicator */}
+                          {processingProgress > 10 && (
+                            <div className="w-3 h-3 bg-white rounded-full shadow-lg animate-pulse mr-1"></div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Progress ticks */}
+                      <div className="absolute top-0 left-0 w-full h-4 flex justify-between px-1 pointer-events-none">
+                        {[20, 40, 60, 80, 95].map((tick) => (
+                          <div
+                            key={tick}
+                            className={`w-0.5 h-4 ${
+                              processingProgress >= tick ? 'bg-white/60' : 'bg-gray-300'
+                            } transition-colors duration-300`}
+                          ></div>
+                        ))}
                       </div>
                     </div>
                   </div>
 
-                  {/* Processing Steps Indicator */}
-                  <div className="mt-6 flex items-center justify-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${processingProgress >= 20 ? 'bg-[#2E86DE]' : 'bg-gray-300'}`}></div>
-                    <div className={`w-2 h-2 rounded-full ${processingProgress >= 40 ? 'bg-[#2E86DE]' : 'bg-gray-300'}`}></div>
-                    <div className={`w-2 h-2 rounded-full ${processingProgress >= 60 ? 'bg-[#2E86DE]' : 'bg-gray-300'}`}></div>
-                    <div className={`w-2 h-2 rounded-full ${processingProgress >= 80 ? 'bg-[#2E86DE]' : 'bg-gray-300'}`}></div>
-                    <div className={`w-2 h-2 rounded-full ${processingProgress >= 95 ? 'bg-[#2E86DE]' : 'bg-gray-300'}`}></div>
+                  {/* Enhanced Processing Steps Indicator */}
+                  <div className="mt-8">
+                    <div className="grid grid-cols-5 gap-2 sm:gap-4">
+                      {[
+                        { threshold: 20, label: "Analyzing", icon: FileSearch },
+                        { threshold: 40, label: "Extracting", icon: Brain },
+                        { threshold: 60, label: "Identifying", icon: Receipt },
+                        { threshold: 80, label: "Validating", icon: CheckCircle },
+                        { threshold: 95, label: "Finalizing", icon: Zap },
+                      ].map(({ threshold, label, icon: Icon }) => {
+                        const isActive = processingProgress >= threshold;
+                        const isCurrent = processingProgress >= threshold - 20 && processingProgress < threshold + 20;
+                        
+                        return (
+                          <div key={threshold} className="flex flex-col items-center">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 transition-all duration-300 ${
+                              isActive
+                                ? 'bg-[#2E86DE] text-white shadow-lg'
+                                : isCurrent
+                                ? 'bg-[#2E86DE]/20 text-[#2E86DE] animate-pulse'
+                                : 'bg-gray-200 text-gray-400'
+                            }`}>
+                              <Icon size={18} />
+                            </div>
+                            <span className={`text-xs font-medium text-center transition-colors duration-300 ${
+                              isActive ? 'text-[#2E86DE]' : 'text-gray-500'
+                            }`}>
+                              {label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  {/* Additional Status Info */}
+                  {processingStatus === "failed" && (
+                    <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
+                      <div className="flex items-center gap-2 text-red-600">
+                        <AlertCircle size={20} />
+                        <span className="font-medium">Processing failed</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
