@@ -61,7 +61,6 @@ function UploadContent() {
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string>("");
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [emailNotificationSent, setEmailNotificationSent] = useState(false);
-  const [preparingReview, setPreparingReview] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -155,10 +154,10 @@ function UploadContent() {
     
     // Progress simulation stages with icons
     const stages = [
-      { progress: 20, stage: "Analyzing receipt image...", icon: FileSearch },
-      { progress: 40, stage: "Extracting text and data...", icon: Brain },
-      { progress: 60, stage: "Identifying merchant and items...", icon: Receipt },
-      { progress: 80, stage: "Validating extracted information...", icon: CheckCircle },
+      { progress: 20, stage: "Queuing receipt for processing...", icon: Clock },
+      { progress: 40, stage: "Analyzing receipt image...", icon: FileSearch },
+      { progress: 60, stage: "Extracting text and data...", icon: Brain },
+      { progress: 80, stage: "Identifying merchant and items...", icon: Receipt },
       { progress: 95, stage: "Finalizing results...", icon: Zap },
     ];
 
@@ -217,26 +216,19 @@ function UploadContent() {
             setEmailNotificationSent(true);
           }
           
-          setTimeout(() => {
-            setProcessingStage("Preparing review form...");
-            setPreparingReview(true);
-            
-            setTimeout(() => {
-              const extractedData: ExtractedData = {
-                merchant_name: data.merchant_name,
-                amount: data.amount,
-                category: data.category,
-                receipt_date: data.receipt_date,
-                confidence: data.confidence,
-                currency: data.currency,
-                extraction_notes: data.notes,
-              };
-              setExtractedData(extractedData);
-              setEditedData(extractedData);
-              setPreparingReview(false);
-              setProcessingStatus(null);
-            }, 1500);
-          }, 1000);
+          // Show data instantly without delay
+          const extractedData: ExtractedData = {
+            merchant_name: data.merchant_name,
+            amount: data.amount,
+            category: data.category,
+            receipt_date: data.receipt_date,
+            confidence: data.confidence,
+            currency: data.currency,
+            extraction_notes: data.notes,
+          };
+          setExtractedData(extractedData);
+          setEditedData(extractedData);
+          setProcessingStatus(null);
         } else if (status === "failed") {
           clearInterval(pollInterval);
           setProcessingProgress(100);
@@ -266,6 +258,12 @@ function UploadContent() {
           };
           setExtractedData(defaultData);
           setEditedData(defaultData);
+        } else if (status === "pending" && !data) {
+          // Status is pending, continue polling - don't clear interval
+          // Update stage to show we're waiting in queue
+          if (pollCount > 3) {
+            setProcessingStage("Waiting in queue...");
+          }
         }
       } catch (error) {
         console.error("Status polling error:", error);
@@ -292,7 +290,7 @@ function UploadContent() {
     // Stop polling after 2 minutes
     setTimeout(() => {
       clearInterval(pollInterval);
-      if (processingStatus === "processing") {
+      if (processingStatus === "processing" || processingStatus === "pending") {
         setProcessingProgress(100);
         setEstimatedTimeRemaining("");
         setProcessingStage("Processing timeout");
@@ -500,7 +498,6 @@ function UploadContent() {
     setEstimatedTimeRemaining("");
     setStartTime(null);
     setEmailNotificationSent(false);
-    setPreparingReview(false);
   };
 
   // Loading states
@@ -753,7 +750,7 @@ function UploadContent() {
               </div>
 
               {/* Upload & OCR Processing */}
-              {(isOcrLoading || processingStatus === "processing" || processingStatus === "uploading") && (
+              {(isOcrLoading || processingStatus === "processing" || processingStatus === "uploading" || processingStatus === "pending") && (
                 <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200">
                   <div className="text-center mb-6">
                     {/* Animated Processing Icon */}
@@ -773,7 +770,7 @@ function UploadContent() {
                     </div>
                     
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      {processingStatus === "uploading" ? "Uploading Receipt" : "AI Processing in Progress"}
+                      {processingStatus === "uploading" ? "Uploading Receipt" : processingStatus === "pending" ? "Waiting in Queue" : "AI Processing in Progress"}
                     </h3>
                     
                     <div className="flex items-center justify-center gap-2 mb-2">
@@ -843,10 +840,10 @@ function UploadContent() {
                   <div className="mt-8">
                     <div className="grid grid-cols-5 gap-2 sm:gap-4">
                       {[
-                        { threshold: 20, label: "Analyzing", icon: FileSearch },
-                        { threshold: 40, label: "Extracting", icon: Brain },
-                        { threshold: 60, label: "Identifying", icon: Receipt },
-                        { threshold: 80, label: "Validating", icon: CheckCircle },
+                        { threshold: 20, label: "Queuing", icon: Clock },
+                        { threshold: 40, label: "Analyzing", icon: FileSearch },
+                        { threshold: 60, label: "Extracting", icon: Brain },
+                        { threshold: 80, label: "Identifying", icon: Receipt },
                         { threshold: 95, label: "Finalizing", icon: Zap },
                       ].map(({ threshold, label, icon: Icon }) => {
                         const isActive = processingProgress >= threshold;
@@ -896,49 +893,9 @@ function UploadContent() {
                     <h2 className="text-lg font-semibold text-gray-900">
                       Review & Edit Details
                     </h2>
-                    {preparingReview && (
-                      <div className="flex items-center gap-2 text-[#2E86DE]">
-                        <div className="w-4 h-4 border-2 border-[#2E86DE] border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-sm font-medium">Loading...</span>
-                      </div>
-                    )}
                   </div>
 
-                  {preparingReview ? (
-                    /* Loading State for Review Form */
-                    <div className="space-y-6">
-                      <div className="text-center py-8">
-                        <div className="w-16 h-16 bg-linear-to-br from-[#2E86DE]/20 to-[#2574C7]/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                          <div className="relative">
-                            <FileText size={28} className="text-[#2E86DE]" />
-                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#2E86DE] rounded-full animate-pulse"></div>
-                          </div>
-                        </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          Preparing Review Form
-                        </h3>
-                        <p className="text-gray-600 mb-4">
-                          Extracting and organizing your receipt data...
-                        </p>
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="w-2 h-2 bg-[#2E86DE] rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-[#2574C7] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                          <div className="w-2 h-2 bg-[#1E5AA8] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                        </div>
-                      </div>
-                      
-                      {/* Skeleton form fields */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {[1, 2, 3, 4].map((i) => (
-                          <div key={i} className="space-y-2">
-                            <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
-                            <div className="h-12 bg-gray-200 rounded-2xl animate-pulse"></div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    /* Actual Form */
+                  {/* Actual Form */}
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -1048,9 +1005,8 @@ function UploadContent() {
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
-              )}
+              </div>
+            )}
             </div>
           )}
         </main>

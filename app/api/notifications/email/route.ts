@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { sendProcessingCompleteEmail, sendProcessingFailedEmail } from "@/lib/emailService";
+import { Client } from "@upstash/qstash";
 import { unauthorized } from "@/lib/error";
+
+const qstashClient = new Client({
+  token: process.env.QSTASH_TOKEN!,
+});
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -18,51 +22,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const userEmail = session.email;
-    let emailSent = false;
+    const userId = session.id;
 
-    switch (type) {
-      case 'processing_complete':
-        emailSent = await sendProcessingCompleteEmail({
-          to: userEmail,
-          merchantName: data.merchantName,
-          amount: data.amount,
-          category: data.category,
-          receiptDate: data.receiptDate,
-          fileName: data.fileName,
-        });
-        break;
+    // Queue email notification with QStash for background processing
+    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/notifications/email-queue`;
 
-      case 'processing_failed':
-        emailSent = await sendProcessingFailedEmail({
-          to: userEmail,
-          fileName: data.fileName,
-          errorMessage: data.errorMessage,
-        });
-        break;
+    await qstashClient.publishJSON({
+      url: webhookUrl,
+      body: {
+        type,
+        data,
+        userId,
+      },
+      retries: 2,
+      timeout: "30s",
+    });
 
-      default:
-        return NextResponse.json(
-          { error: "Invalid notification type" },
-          { status: 400 }
-        );
-    }
-
-    if (emailSent) {
-      return NextResponse.json({ 
-        success: true, 
-        message: "Email notification sent successfully" 
-      });
-    } else {
-      return NextResponse.json(
-        { error: "Failed to send email notification" },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json({ 
+      success: true, 
+      message: "Email notification queued successfully" 
+    });
   } catch (error) {
     console.error("Email notification error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Failed to queue email notification" },
       { status: 500 }
     );
   }
