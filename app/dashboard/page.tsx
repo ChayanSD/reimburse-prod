@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import useUser from "@/utils/useUser";
 import useSubscription from "@/lib/hooks/useSubscription";
+import { getCurrencySymbol } from "@/lib/utils";
 import {
   Receipt,
   Upload,
@@ -72,6 +73,7 @@ interface ReceiptItem {
   amount: string | number | null;
   category: string | null;
   file_url: string | null;
+  currency?: string;
 }
 
 interface CompanySetting {
@@ -422,8 +424,8 @@ export default function DashboardPage() {
 
   const handleDeleteReceipt = async (receiptId: string) => {
     const receipt = allReceipts.find(r => r.id === receiptId);
-    const receiptInfo = receipt 
-      ? `${receipt.merchant_name || "Unknown Merchant"} - ${parseFloat(String(receipt.amount) || "0").toFixed(2)}`
+    const receiptInfo = receipt
+      ? `${receipt.merchant_name || "Unknown Merchant"} - ${getCurrencySymbol(receipt.currency || "USD")}${parseFloat(String(receipt.amount) || "0").toFixed(2)}`
       : "this receipt";
     
     setDeleteModal({
@@ -1199,7 +1201,7 @@ export default function DashboardPage() {
                           {receipt.merchant_name || "Unknown"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-[#10B981]">
-                          ${parseFloat(String(receipt.amount) || "0").toFixed(2)}
+                          {getCurrencySymbol(receipt.currency || "USD")}{parseFloat(String(receipt.amount) || "0").toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-lg">

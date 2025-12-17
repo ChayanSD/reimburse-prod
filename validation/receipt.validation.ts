@@ -9,7 +9,7 @@ export const receiptCreateSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
   category: z.enum(RECEIPT_CATEGORIES, { message: `Category must be one of: ${RECEIPT_CATEGORIES.join(", ")}` }),
   note: z.string().optional(),
-  currency: z.string().default("USD"),
+  currency: z.string(),
 });
 
 export const receiptUpdateSchema = z.object({

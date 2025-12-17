@@ -316,6 +316,7 @@ function UploadContent() {
       receipt_date: string;
       amount: number;
       category: string;
+      currency: string;
     }) => {
       const response = await axios.post("/api/receipts", receiptData);
       return response.data;
@@ -464,20 +465,13 @@ function UploadContent() {
         throw new Error("Category is required");
       }
 
-      console.log("Attempting to save receipt with data:", {
-        file_url: uploadedFile.url,
-        merchant_name: editedData.merchant_name,
-        receipt_date: editedData.receipt_date,
-        amount,
-        category: editedData.category,
-      });
-
       await saveReceiptMutation.mutateAsync({
         file_url: uploadedFile.url,
         merchant_name: editedData.merchant_name,
         receipt_date: editedData.receipt_date,
         amount,
         category: editedData.category,
+        currency: editedData.currency!,
       });
     } catch (err) {
       console.error("Save error:", err);

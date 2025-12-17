@@ -21,7 +21,7 @@ interface ExtractedData {
 }
 
 interface OCRRequestBody {
-  receiptId: number;
+  receiptId?: number;
   userId: number;
   file_url: string;
   filename: string;
@@ -36,20 +36,19 @@ async function handler(request: NextRequest): Promise<NextResponse> {
   try {
     // Parse and validate request body
     const body: OCRRequestBody = await request.json();
-    
+
     // Destructure with validation
     const { receiptId: id, userId, file_url, filename } = body;
-    
-    if (!id || !userId || !file_url) {
-      console.error("Missing required fields:", { id, userId, file_url });
+
+    if (!userId || !file_url) {
+      console.error("Missing required fields:", { userId, file_url });
       return NextResponse.json(
-        { error: "Missing required fields: receiptId, userId, or file_url" },
+        { error: "Missing required fields: userId or file_url" },
         { status: 400 }
       );
     }
 
     receiptId = id;
-    console.log("Processing OCR for receipt:", receiptId, { userId, filename });
 
     // Extract data using AI with timeout protection
     const extractedData = await Promise.race<ExtractedData>([
@@ -58,12 +57,9 @@ async function handler(request: NextRequest): Promise<NextResponse> {
         setTimeout(() => reject(new Error("OCR timeout after 50 seconds")), 50000)
       ),
     ]);
-
-    console.log("OCR extraction completed:", { receiptId, merchant: extractedData.merchant_name });
-
     // Process and normalize data
     const merchant = normalizeMerchant(extractedData.merchant_name);
-    const currency = normalizeCurrency(extractedData.amount.toString(), "USD");
+    const currency = normalizeCurrency(extractedData.amount.toString(), extractedData.currency);
     // Ensure date is always in YYYY-MM-DD format
     let date = parseDateRobust(extractedData.receipt_date);
     if (!date) {
@@ -71,8 +67,37 @@ async function handler(request: NextRequest): Promise<NextResponse> {
       const isoMatch = extractedData.receipt_date.match(/^(\d{4}-\d{2}-\d{2})/);
       date = isoMatch ? isoMatch[1] : new Date().toISOString().split("T")[0];
     }
-
-    console.log("Normalized data:", { merchant, amount: currency.amount, date });
+    // Find or create receipt
+    let receiptIdToUpdate = receiptId;
+    if (!receiptId) {
+      const existingReceipt = await prisma.receipt.findFirst({
+        where: {
+          userId,
+          fileUrl: file_url,
+          status: { in: ['pending', 'completed'] }
+        },
+      });
+      if (existingReceipt) {
+        receiptIdToUpdate = existingReceipt.id;
+      } else {
+        // Create new receipt
+        const newReceipt = await prisma.receipt.create({
+          data: {
+            userId,
+            fileName: filename,
+            fileUrl: file_url,
+            merchantName: merchant,
+            amount: currency.amount,
+            currency: currency.currency,
+            receiptDate: new Date(date),
+            category: extractedData.category,
+            status: "completed",
+            note: extractedData.extraction_notes || "Processed successfully",
+          },
+        });
+        receiptIdToUpdate = newReceipt.id;
+      }
+    }
 
     // Check for duplicates
     const isDuplicate = await checkForDuplicate(
@@ -83,13 +108,13 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     );
 
     // Calculate confidence score
-    const confidence = 
+    const confidence =
       extractedData.confidence === "high" ? 0.9 :
       extractedData.confidence === "medium" ? 0.7 : 0.5;
 
     // Update receipt in database
     await prisma.receipt.update({
-      where: { id: receiptId },
+      where: { id: receiptIdToUpdate },
       data: {
         merchantName: merchant,
         amount: currency.amount,
@@ -105,11 +130,9 @@ async function handler(request: NextRequest): Promise<NextResponse> {
       },
     });
 
-    console.log("OCR processing completed successfully:", receiptId);
-
     return NextResponse.json({
       success: true,
-      receiptId,
+      receiptId: receiptIdToUpdate,
       data: {
         merchant,
         amount: currency.amount,
