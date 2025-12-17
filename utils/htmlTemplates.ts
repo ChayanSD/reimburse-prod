@@ -77,10 +77,10 @@ export interface ExpenseReportData {
 function sanitizeHTML(str: string): string {
   if (typeof str !== 'string') return '';
   return str
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/"/g, '"')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;');
 }
 
@@ -128,12 +128,16 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       .no-page-break { page-break-inside: avoid; }
     }
     
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { 
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box; 
+    }
     
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 11px;
-      line-height: 1.5;
+      line-height: 1.6;
       color: #374151;
       background: white;
       -webkit-print-color-adjust: exact;
@@ -148,7 +152,7 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
     
     .page {
       min-height: 11in;
-      padding: 0.75in;
+      padding: 0.5in 0.75in;
       position: relative;
       background: white;
     }
@@ -158,29 +162,39 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 32px;
-      padding-bottom: 20px;
+      margin: -0.5in -0.75in 0 -0.75in;
+      padding: 24px 0.75in;
+      background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
       border-bottom: 3px solid #2E86DE;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      margin-bottom: 28px;
     }
     
     .logo-section {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
     }
     
     .logo {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, #2E86DE 0%, #10B981 100%);
-      border-radius: 12px;
+      width: 52px;
+      height: 52px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
-      font-weight: 700;
-      font-size: 18px;
-      font-family: 'Poppins', sans-serif;
+      border-radius: 12px;
+      background: white;
+      box-shadow: 0 4px 12px rgba(46, 134, 222, 0.15);
+      border: 1px solid #E5E7EB;
+      padding: 6px;
+    }
+    
+    .logo-image {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      border-radius: 8px;
     }
     
     .brand-info h1 {
@@ -188,13 +202,15 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       font-size: 24px;
       font-weight: 700;
       color: #1F2937;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
+      line-height: 1.2;
     }
     
     .tagline {
       font-size: 13px;
       color: #6B7280;
       font-style: italic;
+      line-height: 1.4;
     }
     
     .report-meta {
@@ -207,12 +223,14 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       font-size: 18px;
       font-weight: 600;
       color: #2E86DE;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      line-height: 1.3;
     }
     
     .meta-item {
-      margin: 3px 0;
+      margin: 4px 0;
       font-size: 11px;
+      line-height: 1.5;
     }
     
     .meta-label {
@@ -224,15 +242,28 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
     .info-section {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 24px;
+      gap: 20px;
       margin-bottom: 28px;
     }
     
     .info-card {
-      background: #F9FAFB;
-      border: 1px solid #E5E7EB;
+      background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+      border: 1px solid rgba(46, 134, 222, 0.1);
       border-radius: 12px;
       padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .info-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #2E86DE 0%, #10B981 100%);
     }
     
     .card-title {
@@ -240,19 +271,24 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       font-size: 14px;
       font-weight: 600;
       color: #2E86DE;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
       display: flex;
       align-items: center;
       gap: 8px;
+      line-height: 1.4;
     }
     
     .card-content {
       font-size: 11px;
-      line-height: 1.6;
+      line-height: 1.7;
     }
     
     .card-content div {
-      margin-bottom: 4px;
+      margin-bottom: 5px;
+    }
+    
+    .card-content div:last-child {
+      margin-bottom: 0;
     }
     
     .card-content strong {
@@ -262,12 +298,24 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
     
     /* Summary Overview */
     .summary-overview {
-      background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
-      border: 2px solid #D1D5DB;
+      background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 50%, #E2E8F0 100%);
+      border: 1px solid rgba(46, 134, 222, 0.1);
       border-radius: 16px;
       padding: 24px;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
       position: relative;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    }
+    
+    .summary-overview::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #2E86DE 0%, #10B981 100%);
+      border-radius: 20px 20px 0 0;
     }
     
     .summary-header {
@@ -275,29 +323,44 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       font-size: 16px;
       font-weight: 600;
       color: #1F2937;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
+      line-height: 1.4;
     }
     
     .summary-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
+      gap: 18px;
+      margin-bottom: 24px;
     }
     
     .summary-stat {
       background: white;
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 16px;
+      padding: 22px 18px;
       text-align: center;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border: 1px solid rgba(46, 134, 222, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .summary-stat::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #2E86DE 0%, #10B981 100%);
     }
     
     .stat-value {
       font-family: 'Poppins', sans-serif;
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 700;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      line-height: 1.2;
     }
     
     .stat-value.positive { color: #10B981; }
@@ -310,21 +373,23 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       text-transform: uppercase;
       letter-spacing: 0.5px;
       font-weight: 500;
+      line-height: 1.4;
     }
     
     .period-info {
       background: white;
-      border-radius: 8px;
-      padding: 12px;
+      border-radius: 10px;
+      padding: 14px;
       font-size: 12px;
       text-align: center;
       color: #4B5563;
       border: 1px solid #E5E7EB;
+      line-height: 1.5;
     }
     
     /* Receipts Table */
     .receipts-section {
-      margin-bottom: 32px;
+      margin-bottom: 28px;
     }
     
     .section-title {
@@ -336,14 +401,15 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       display: flex;
       align-items: center;
       gap: 8px;
+      line-height: 1.4;
     }
     
     .table-container {
       background: white;
-      border: 1px solid #E5E7EB;
-      border-radius: 12px;
+      border: 1px solid rgba(46, 134, 222, 0.1);
+      border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.08);
     }
     
     table {
@@ -354,22 +420,24 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
     th {
       background: #2E86DE;
       color: white;
-      padding: 14px 12px;
+      padding: 15px 14px;
       text-align: left;
       font-weight: 600;
       font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       border-bottom: 2px solid #1E40AF;
+      line-height: 1.4;
     }
     
     th.amount-col { text-align: right; }
     
     td {
-      padding: 12px;
+      padding: 14px;
       border-bottom: 1px solid #F3F4F6;
       font-size: 10px;
       vertical-align: top;
+      line-height: 1.6;
     }
     
     tbody tr:nth-child(even) {
@@ -378,6 +446,10 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
     
     tbody tr:hover {
       background: #F3F4F6;
+    }
+    
+    tbody tr:last-child td {
+      border-bottom: none;
     }
     
     .amount {
@@ -394,6 +466,7 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       text-decoration: none;
       font-weight: 500;
       font-size: 9px;
+      line-height: 1.5;
     }
     
     .receipt-link:hover {
@@ -403,12 +476,15 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
     .policy-flag {
       color: #EF4444;
       font-weight: 700;
-      font-size: 12px;
+      font-size: 11px;
+      line-height: 1.4;
     }
     
     .policy-ok {
       color: #10B981;
       font-weight: 700;
+      font-size: 11px;
+      line-height: 1.4;
     }
     
     .notes {
@@ -416,79 +492,123 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       word-wrap: break-word;
       font-size: 9px;
       color: #6B7280;
+      line-height: 1.5;
     }
     
     /* Category Breakdown */
     .category-section {
-      background: #F9FAFB;
-      border: 1px solid #E5E7EB;
+      background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+      border: 1px solid rgba(46, 134, 222, 0.1);
       border-radius: 12px;
       padding: 24px;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      position: relative;
+    }
+    
+    .category-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #2E86DE 0%, #10B981 100%);
+      border-radius: 16px 16px 0 0;
     }
     
     .category-grid {
       display: grid;
       grid-template-columns: 2fr 1fr 2fr;
-      gap: 16px;
+      gap: 20px;
       align-items: start;
     }
     
     .category-table {
       width: 100%;
       border-collapse: collapse;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }
     
     .category-table th {
       background: #374151;
       color: white;
-      padding: 10px;
+      padding: 12px;
       font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      font-weight: 600;
+      line-height: 1.4;
     }
     
     .category-table td {
-      padding: 10px;
+      padding: 12px;
       border-bottom: 1px solid #E5E7EB;
       font-size: 11px;
+      line-height: 1.6;
+    }
+    
+    .category-table tbody tr:last-child td {
+      border-bottom: none;
     }
     
     .grand-total {
       background: #2E86DE;
       color: white;
       font-weight: 700;
-      font-size: 14px;
+      font-size: 13px;
+    }
+    
+    .grand-total td {
+      border-bottom: none;
+      padding: 14px 12px;
     }
     
     .currency-note {
       font-size: 10px;
       color: #6B7280;
       font-style: italic;
-      margin-top: 12px;
+      line-height: 1.7;
     }
     
     /* Sign-off Section */
     .signoff-section {
-      background: white;
-      border: 2px solid #E5E7EB;
+      background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+      border: 1px solid rgba(46, 134, 222, 0.1);
       border-radius: 12px;
       padding: 24px;
-      margin: 32px 0;
+      margin: 28px 0;
       page-break-inside: avoid;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      position: relative;
+    }
+    
+    .signoff-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #2E86DE 0%, #10B981 100%);
+      border-radius: 16px 16px 0 0;
     }
     
     .certification-text {
       font-size: 12px;
       color: #374151;
-      margin-bottom: 24px;
+      margin-bottom: 28px;
       font-style: italic;
+      line-height: 1.7;
     }
     
     .signature-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 40px;
+      gap: 48px;
     }
     
     .signature-block {
@@ -498,24 +618,27 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
     .signature-title {
       font-weight: 600;
       color: #1F2937;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      line-height: 1.4;
     }
     
     .signature-line {
       border-bottom: 2px solid #9CA3AF;
-      margin: 32px 0 8px 0;
+      margin: 36px 0 10px 0;
       height: 2px;
     }
     
     .signature-label {
       font-size: 10px;
       color: #6B7280;
+      line-height: 1.4;
     }
     
     /* Footer */
     .footer {
       position: absolute;
-      bottom: 0.5in;
+      bottom: 0.4in;
       left: 0.75in;
       right: 0.75in;
       padding-top: 12px;
@@ -525,6 +648,7 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       align-items: center;
       font-size: 9px;
       color: #6B7280;
+      line-height: 1.5;
     }
     
     .footer-left {
@@ -545,39 +669,51 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
     .receipt-gallery {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      margin-top: 20px;
+      gap: 22px;
+      margin-top: 22px;
     }
     
     .receipt-thumbnail {
       border: 1px solid #E5E7EB;
-      border-radius: 8px;
-      padding: 12px;
+      border-radius: 10px;
+      padding: 14px;
       text-align: center;
       background: #F9FAFB;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
     }
     
     .thumbnail-placeholder {
       width: 100%;
       height: 120px;
       background: #E5E7EB;
-      border-radius: 6px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #6B7280;
       font-size: 10px;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      line-height: 1.4;
     }
     
     .thumbnail-info {
       font-size: 9px;
       color: #374151;
+      line-height: 1.6;
+    }
+    
+    .thumbnail-info div {
+      margin-bottom: 3px;
+    }
+    
+    .thumbnail-info div:last-child {
+      margin-bottom: 0;
     }
     
     .thumbnail-amount {
       font-weight: 600;
       color: #10B981;
+      margin-top: 4px;
     }
   </style>
 </head>
@@ -587,7 +723,16 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
       <!-- Header -->
       <div class="header">
         <div class="logo-section">
-          <div class="logo">R</div>
+          <div class="logo">
+            <img
+              src="https://ucarecdn.com/6b43f5cf-10b4-4838-b2ba-397c0a896734/-/format/auto/"
+              alt="ReimburseMe Logo"
+              class="logo-image"
+              width="40"
+              height="40"
+              style="width: 40px; height: 40px; object-fit: contain;"
+            />
+          </div>
           <div class="brand-info">
             <h1>ReimburseMe</h1>
             <div class="tagline">Your receipts. Reimbursed. Instantly.</div>
@@ -609,7 +754,7 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
           <div class="card-content">
             <div><strong>${sanitizeHTML(submitter.name)}</strong></div>
             <div>${sanitizeHTML(submitter.email)}</div>
-            <div>${sanitizeHTML(submitter.title || "")}</div>
+            ${submitter.title ? `<div>${sanitizeHTML(submitter.title)}</div>` : ''}
             <div><strong>Employee ID:</strong> ${sanitizeHTML(submitter.employee_id || "N/A")}</div>
             <div><strong>Department:</strong> ${sanitizeHTML(submitter.department || "General")}</div>
           </div>
@@ -675,7 +820,7 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
                   <td>${formatDate(item.date)}</td>
                   <td><strong>${sanitizeHTML(item.merchant)}</strong></td>
                   <td>
-                    <span style="background: #E0F2FE; color: #0369A1; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 500;">
+                    <span style="background: #E0F2FE; color: #0369A1; padding: 3px 8px; border-radius: 6px; font-size: 9px; font-weight: 500; display: inline-block;">
                       ${sanitizeHTML(item.category)}
                     </span>
                   </td>
@@ -683,7 +828,7 @@ function generateReimburseMeTemplate(data: ExpenseReportData): string {
                   <td class="amount positive">$${formatCurrency(item.converted_amount || item.amount)}</td>
                   <td>
                     ${item.file_url ? `<a href="${item.file_url}" class="receipt-link" target="_blank" title="View Receipt">📄 View Receipt</a>` : '<span style="color: #9CA3AF;">No Receipt</span>'}
-                    <div style="margin-top: 2px;">
+                    <div style="margin-top: 4px;">
                       ${item.policy_flag ? '<span class="policy-flag" title="Policy Violation">⚠️ Flag</span>' : '<span class="policy-ok" title="Policy Compliant">✓ OK</span>'}
                     </div>
                   </td>
@@ -794,7 +939,7 @@ function generateAppendixHTML(lineItems: LineItem[], totalPages: number): string
               <div><strong>${item.merchant}</strong></div>
               <div>${formatDate(item.date)}</div>
               <div class="thumbnail-amount">$${formatCurrency(item.converted_amount || item.amount)}</div>
-              ${item.file_url ? '<div style="font-size: 8px; color: #2E86DE; font-weight: 500;">Click to view receipt</div>' : ""}
+              ${item.file_url ? '<div style="font-size: 8px; color: #2E86DE; font-weight: 500; margin-top: 4px;">Click to view receipt</div>' : ""}
             </div>
           </div>
         `,
@@ -818,8 +963,9 @@ function generateAppendixHTML(lineItems: LineItem[], totalPages: number): string
 function generateCompactTemplate(data: ExpenseReportData): string {
   // Simplified compact version
   return generateReimburseMeTemplate(data)
-    .replace(/padding: 24px/g, "padding: 16px")
-    .replace(/margin-bottom: 32px/g, "margin-bottom: 20px")
+    .replace(/padding: 24px/g, "padding: 18px")
+    .replace(/padding: 20px/g, "padding: 16px")
+    .replace(/margin-bottom: 28px/g, "margin-bottom: 20px")
     .replace(/font-size: 11px/g, "font-size: 10px");
 }
 
@@ -855,21 +1001,6 @@ function formatMonthYear(dateStr: string): string {
     return "Invalid Date";
   }
 }
-
-// function formatDateTime(dateStr: string): string {
-//   if (!dateStr) return "N/A";
-//   try {
-//     return new Date(dateStr).toLocaleString("en-US", {
-//       year: "numeric",
-//       month: "short",
-//       day: "numeric",
-//       hour: "2-digit",
-//       minute: "2-digit",
-//     });
-//   } catch {
-//     return "Invalid Date";
-//   }
-// }
 
 function formatCurrency(amount: number): string {
   return amount.toLocaleString("en-US", {
