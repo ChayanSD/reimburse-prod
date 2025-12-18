@@ -1,10 +1,8 @@
 "use client";
-
 import * as React from "react";
 
 interface UploadResult {
   url: string;
-  mimeType?: string;
   public_id?: string;
   format?: string;
   bytes?: number;
@@ -12,124 +10,69 @@ interface UploadResult {
 }
 
 interface UploadInput {
-  file?: File;
-  url?: string;
-  base64?: string;
-  buffer?: ArrayBuffer;
+  file: File;
 }
 
 function useUpload() {
   const [loading, setLoading] = React.useState(false);
 
-  const upload = React.useCallback(async (input: UploadInput): Promise<UploadResult> => {
-    try {
+  const upload = React.useCallback(
+    async (input: UploadInput): Promise<UploadResult> => {
       setLoading(true);
-      
-      let response: Response;
-      if (input.file) {
-        // Handle file upload to Cloudinary
+      try {
+        // Determine transformation based on file type
+        let transformation: string;
+        if (input.file.type === 'application/pdf') {
+          transformation = "c_scale,w_1000,f_webp,q_100";
+        } else {
+          transformation = "c_scale,w_1000,q_100,f_auto";
+        }
+
+        // 1. Get signed params from server
+        const sigRes = await fetch(`/api/cloudinary-signature?transformation=${encodeURIComponent(transformation)}`);
+        const { timestamp, signature, apiKey, cloudName } = await sigRes.json();
+
         const formData = new FormData();
         formData.append("file", input.file);
-        
-        // Get Cloudinary config from environment
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-        
-        if (!cloudName || !uploadPreset) {
-          throw new Error("Cloudinary configuration is missing");
+        formData.append("api_key", apiKey);
+        formData.append("timestamp", timestamp.toString());
+        formData.append("signature", signature);
+
+        // Transformation as string
+        formData.append("transformation", transformation);
+
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`Upload failed: ${text}`);
         }
-        
-        // Upload to Cloudinary
-        const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
-        response = await fetch(`${cloudinaryUrl}?upload_preset=${uploadPreset}`, {
-          method: "POST",
-          body: formData,
-        });
-      } else if (input.url) {
-        // Handle URL upload to Cloudinary
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-        
-        if (!cloudName || !uploadPreset) {
-          throw new Error("Cloudinary configuration is missing");
+
+        const data = await res.json();
+        return {
+          url: data.secure_url,
+          public_id: data.public_id,
+          format: data.format,
+          bytes: data.bytes,
+        };
+      } catch (err) {
+        console.error("Upload error:", err);
+        if (err instanceof Error) {
+          return { error: err.message, url: "" };
         }
-        
-        const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
-        response = await fetch(`${cloudinaryUrl}?upload_preset=${uploadPreset}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ 
-            url: input.url
-          }),
-        });
-      } else if (input.base64) {
-        // Handle base64 upload to Cloudinary
-        const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-        const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-        
-        if (!cloudName || !uploadPreset) {
-          throw new Error("Cloudinary configuration is missing");
-        }
-        
-        const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/upload`;
-        response = await fetch(`${cloudinaryUrl}?upload_preset=${uploadPreset}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ 
-            file: input.base64
-          }),
-        });
-      } else {
-        throw new Error("Invalid input: file, url, or base64 required");
+        return { error: "Upload failed", url: "" };
+      } finally {
+        setLoading(false);
       }
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Cloudinary upload error:", errorText);
-        
-        if (response.status === 413) {
-          throw new Error("Upload failed: File too large.");
-        }
-        if (response.status === 400) {
-          throw new Error("Upload failed: Invalid file format or corrupted file.");
-        }
-        if (response.status === 401) {
-          throw new Error("Upload failed: Authentication error.");
-        }
-        if (response.status === 403) {
-          throw new Error("Upload failed: Upload preset configuration error.");
-        }
-        
-        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
-      }
-      
-      const data = await response.json();
-      
-      // Return in the same format as before for compatibility
-      return { 
-        url: data.secure_url || data.url, 
-        mimeType: data.resource_type || null,
-        public_id: data.public_id || null,
-        format: data.format || null,
-        bytes: data.bytes || null
-      };
-    } catch (uploadError) {
-      console.error("Upload error:", uploadError);
-      if (uploadError instanceof Error) {
-        return { error: uploadError.message, url: "" };
-      }
-      if (typeof uploadError === "string") {
-        return { error: uploadError, url: "" };
-      }
-      return { error: "Upload failed", url: "" };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   return [upload, { loading }] as const;
 }

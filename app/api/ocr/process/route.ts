@@ -54,7 +54,7 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     const extractedData = await Promise.race<ExtractedData>([
       aiOCRExtraction(file_url, filename),
       new Promise<ExtractedData>((_, reject) =>
-        setTimeout(() => reject(new Error("OCR timeout after 50 seconds")), 50000)
+        setTimeout(() => reject(new Error("OCR timeout after 100 seconds")), 100 * 1000)
       ),
     ]);
     // Process and normalize data
