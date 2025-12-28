@@ -59,13 +59,6 @@ function validateHTML(html: string): void {
   }
 }
 
-/**
- * Generate PDF using PDFShift API (100 free PDFs/month, no credit card required)
- * Optimized for Vercel Hobby plan with comprehensive error handling
- * 
- * Free tier: 100 PDFs/month
- * Get API key: https://pdfshift.io/ (free, no credit card)
- */
 export async function generatePDF(
   data: ExpenseReportData,
   options?: { userId?: string }
@@ -115,10 +108,7 @@ export async function generatePDF(
             source: htmlContent,
             format: "A4",
             margin: "0.5in",
-            print_background: true,
-            wait_for: "networkidle0",
-            wait: 2000, // Wait 2s for fonts/resources to load
-            sandbox: false,
+            // Only using basic parameters - PDFShift API v3 doesn't support background/wait_until
           }),
           signal: controller.signal,
         });
@@ -185,22 +175,19 @@ export async function generatePDF(
         
         throw error;
       }
-    }, 3, 1000); // 3 retries with 1s, 2s, 3s delays
+    }, 3, 1000);
 
-    // Step 6: Validate PDF was generated
     if (!pdfBuffer || pdfBuffer.length === 0) {
       throw new Error("PDF generation returned empty result");
     }
 
-    // Step 7: Calculate estimated pages
     const estimatedPages = Math.max(
       1,
       Math.ceil((data.line_items?.length || 0) / 15) +
         1 +
         (data.appendix?.include_receipt_gallery ? 1 : 0)
     );
-
-    // Step 8: Create data URL for the PDF
+ // Step 8: Create data URL for the PDF
     const pdfDataUrl = `data:application/pdf;base64,${pdfBuffer.toString(
       "base64"
     )}`;
@@ -214,9 +201,7 @@ export async function generatePDF(
       html_content: htmlContent,
     };
   } catch (error) {
-    // Enhanced error handling with clear messages
     if (error instanceof Error) {
-      // Re-throw with enhanced context if it's already a well-formed error
       if (error.message.includes("PDFSHIFT_API_KEY") || 
           error.message.includes("PDFShift API") ||
           error.message.includes("HTML content") ||
@@ -225,7 +210,6 @@ export async function generatePDF(
         throw error;
       }
       
-      // Network/timeout errors (with retry suggestion)
       if (error.message.includes("fetch") || 
           error.message.includes("network") ||
           error.message.includes("timeout") ||
@@ -238,7 +222,6 @@ export async function generatePDF(
         );
       }
       
-      // Generic error with helpful context
       throw new Error(
         `Failed to generate PDF: ${error.message}. ` +
         "If this persists, verify: 1) PDFSHIFT_API_KEY is set correctly, 2) You haven't exceeded free tier (100/month), 3) Network connection is stable."
