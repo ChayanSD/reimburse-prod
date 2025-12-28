@@ -2,10 +2,6 @@ import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
 import { generateHTML, ExpenseReportData } from "./htmlTemplates";
 
-// Remote Chromium executable path for Vercel serverless environment
-const remoteExecutablePath =
-  "https://github.com/Sparticuz/chromium/releases/download/v131.0.0/chromium-v131.0.0-pack.tar";
-
 export interface GeneratePDFOptions {
   paperSize?: string;
   userId?: string;
