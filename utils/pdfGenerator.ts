@@ -1,6 +1,11 @@
-import puppeteer from "puppeteer-core";
+import puppeteerCore from "puppeteer-core";
+import puppeteer from "puppeteer";
 import chromium from "@sparticuz/chromium-min";
 import { generateHTML, ExpenseReportData } from "./htmlTemplates";
+
+// Remote Chromium executable path for Vercel serverless environment
+const remoteExecutablePath =
+  "https://github.com/Sparticuz/chromium/releases/download/v131.0.0/chromium-v131.0.0-pack.tar";
 
 export interface GeneratePDFOptions {
   paperSize?: string;
@@ -38,47 +43,49 @@ export async function generatePDF(
     const filename = `reimburseme_${userSlug}_${periodStr}.pdf`;
 
     // Check if running on Vercel (serverless environment)
-    // Vercel sets VERCEL=1 or VERCEL_ENV environment variable
-    // Only use serverless chromium when actually on Vercel
-    const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV !== undefined;
-    const useServerlessChromium = isVercel;
+    // Check multiple Vercel environment variables for compatibility
+    const isVercel =
+      process.env.NEXT_PUBLIC_VERCEL_ENVIRONMENT === "production" ||
+      process.env.VERCEL === "1" ||
+      process.env.VERCEL_ENV !== undefined;
     
-    if (useServerlessChromium) {
+    if (isVercel) {
       console.log("Using serverless Chromium for PDF generation (Vercel environment)");
+      // Launch Puppeteer with serverless chromium for Vercel
+      // Use remote executable path to download Chromium at runtime
+      browser = await puppeteerCore.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(remoteExecutablePath),
+        headless: chromium.headless,
+        defaultViewport: chromium.defaultViewport,
+      });
     } else {
       console.log("Using local Chrome/Chromium for PDF generation (development)");
+      // Launch Puppeteer with local Chrome for development
+      browser = await puppeteer.launch({
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-accelerated-2d-canvas",
+          "--no-first-run",
+          "--no-zygote",
+          "--disable-gpu",
+          "--disable-web-security",
+          "--disable-features=VizDisplayCompositor",
+          "--disable-background-timer-throttling",
+          "--disable-backgrounding-occluded-windows",
+          "--disable-renderer-backgrounding",
+          ...(process.platform !== "win32" ? ["--single-process"] : []),
+        ],
+        headless: true,
+      });
     }
-    
-    // Launch Puppeteer with serverless chromium for Vercel
-    browser = await puppeteer.launch({
-      args: useServerlessChromium
-        ? [...chromium.args, "--hide-scrollbars", "--disable-web-security"]
-        : [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-accelerated-2d-canvas",
-            "--no-first-run",
-            "--no-zygote",
-            "--disable-gpu",
-            "--disable-web-security",
-            "--disable-features=VizDisplayCompositor",
-            "--disable-background-timer-throttling",
-            "--disable-backgrounding-occluded-windows",
-            "--disable-renderer-backgrounding",
-            ...(process.platform !== "win32" ? ["--single-process"] : []),
-          ],
-      defaultViewport: useServerlessChromium ? chromium.defaultViewport : { width: 1200, height: 800 },
-      executablePath: useServerlessChromium
-        ? await chromium.executablePath()
-        : undefined, // undefined uses locally installed Chrome in development
-      headless: useServerlessChromium ? chromium.headless : true,
-    });
 
     const page = await browser.newPage();
 
     // Set viewport for better PDF rendering (only if not using chromium default)
-    if (!useServerlessChromium) {
+    if (!isVercel) {
       await page.setViewport({ width: 1200, height: 800 });
     }
 

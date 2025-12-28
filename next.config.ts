@@ -22,6 +22,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Configure external packages for serverless functions
+  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium-min'],
 };
 
 export default nextConfig;
