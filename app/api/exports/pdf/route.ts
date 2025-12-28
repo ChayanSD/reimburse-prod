@@ -3,8 +3,11 @@ import { ExpenseReportData } from "@/utils/htmlTemplates";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+
+export const maxDuration = 10;
+
 const pdfRequestSchema = z.object({
-  data: z.any(), // We'll validate the structure more thoroughly
+  data: z.any(),
 });
 
 export async function GET() : Promise<NextResponse> {

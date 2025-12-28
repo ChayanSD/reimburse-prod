@@ -9,7 +9,7 @@ export const getStripeInstance = () => {
   // Fallback to old format for backward compatibility
   if (!secretKey && process.env.STRIPE_SECRET_KEY) {
     return new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2025-11-17.clover",
+      apiVersion: "2025-12-15.clover",
     });
   }
 
@@ -19,5 +19,5 @@ export const getStripeInstance = () => {
     );
   }
 
-  return new Stripe(secretKey, { apiVersion: "2025-11-17.clover" });
+  return new Stripe(secretKey, { apiVersion: "2025-12-15.clover" });
 };
