@@ -37,12 +37,21 @@ export async function generatePDF(
     ).padStart(2, "0")}`;
     const filename = `reimburseme_${userSlug}_${periodStr}.pdf`;
 
-    // Use serverless chromium in production (Vercel), or local Chrome in development
-    const isProduction = process.env.NODE_ENV === "production";
+    // Check if running on Vercel (serverless environment)
+    // Vercel sets VERCEL=1 or VERCEL_ENV environment variable
+    // Only use serverless chromium when actually on Vercel
+    const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV !== undefined;
+    const useServerlessChromium = isVercel;
+    
+    if (useServerlessChromium) {
+      console.log("Using serverless Chromium for PDF generation (Vercel environment)");
+    } else {
+      console.log("Using local Chrome/Chromium for PDF generation (development)");
+    }
     
     // Launch Puppeteer with serverless chromium for Vercel
     browser = await puppeteer.launch({
-      args: isProduction
+      args: useServerlessChromium
         ? [...chromium.args, "--hide-scrollbars", "--disable-web-security"]
         : [
             "--no-sandbox",
@@ -59,17 +68,17 @@ export async function generatePDF(
             "--disable-renderer-backgrounding",
             ...(process.platform !== "win32" ? ["--single-process"] : []),
           ],
-      defaultViewport: isProduction ? chromium.defaultViewport : { width: 1200, height: 800 },
-      executablePath: isProduction
+      defaultViewport: useServerlessChromium ? chromium.defaultViewport : { width: 1200, height: 800 },
+      executablePath: useServerlessChromium
         ? await chromium.executablePath()
         : undefined, // undefined uses locally installed Chrome in development
-      headless: isProduction ? chromium.headless : true,
+      headless: useServerlessChromium ? chromium.headless : true,
     });
 
     const page = await browser.newPage();
 
     // Set viewport for better PDF rendering (only if not using chromium default)
-    if (!isProduction) {
+    if (!useServerlessChromium) {
       await page.setViewport({ width: 1200, height: 800 });
     }
 
