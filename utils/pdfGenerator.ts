@@ -43,10 +43,12 @@ export async function generatePDF(
     // Step 2: Launch Browser
     if (process.env.NODE_ENV === "production" || process.env.VERCEL) {
       // Configuration for Vercel/Production
+      // Required for Vercel/AWS Lambda to avoid "brotli" errors and size limits
+      chromium.setGraphicsMode = false;
       const executablePath = await chromium.executablePath();
       
       browser = await puppeteer.launch({
-        args: chromium.args,
+        args: [...chromium.args, "--hide-scrollbars", "--disable-web-security"],
         defaultViewport: { width: 1920, height: 1080 },
         executablePath,
         headless: true,
