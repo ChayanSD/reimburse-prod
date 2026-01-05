@@ -114,6 +114,29 @@ interface ReportData {
   company_setting_id?: number | null;
 }
 
+interface BatchSession {
+  id: number;
+  sessionId: string;
+  status: string;
+  files: Array<{
+    id: string;
+    url: string;
+    name: string;
+    status: string;
+    extractedData?: {
+      merchant_name: string;
+      amount: number;
+      category: string;
+      receipt_date: string;
+      currency?: string;
+      extraction_notes?: string;
+    };
+  }>;
+  paymentId: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
 // API functions
 const fetchReceipts = async (): Promise<ReceiptItem[]> => {
   const { data } = await axios.get<{ receipts: ReceiptItem[] }>("/api/receipts");
@@ -123,6 +146,11 @@ const fetchReceipts = async (): Promise<ReceiptItem[]> => {
 const fetchCompanySettings = async (): Promise<CompanySetting[]> => {
   const { data } = await axios.get<{ settings: CompanySetting[] }>("/api/company-settings");
   return data.settings || [];
+};
+
+const fetchBatchSessions = async (): Promise<BatchSession[]> => {
+  const { data } = await axios.get<{ batchSessions: BatchSession[] }>("/api/batch-sessions");
+  return data.batchSessions || [];
 };
 
 const deleteReceipt = async (receiptId: string): Promise<void> => {
@@ -305,6 +333,12 @@ export default function DashboardPage() {
   });
 
   // Mutations
+  const { data: batchSessions = [] } = useQuery<BatchSession[]>({
+    queryKey: ['batch-sessions'],
+    queryFn: fetchBatchSessions,
+    enabled: !!user,
+  });
+  
   const deleteMutation = useMutation({
     mutationFn: deleteReceipt,
     onSuccess: () => {
@@ -332,7 +366,7 @@ export default function DashboardPage() {
 
   const reportMutation = useMutation({
     mutationFn: generateReport,
-    onSuccess: async (data, variables) => {
+    onSuccess: async (data) => {
       // For CSV or PDF, if download available, verify and download
       if (data.download_url && data.filename) {
         const link = document.createElement("a");
@@ -552,6 +586,40 @@ export default function DashboardPage() {
     reportMutation.mutate(reportData);
   };
 
+  const handleDownloadPurchasedExport = async (format: 'csv' | 'pdf', batchSessionId: string) => {
+    try {
+      const response = await axios.post(`/api/exports/${format}`, {
+        batchSessionId,
+      }, {
+        responseType: 'blob',
+      });
+  
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `batch-export-${batchSessionId}.${format}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+  
+      addToast({
+        type: 'success',
+        title: 'Download Started',
+        message: `Your ${format.toUpperCase()} export has been downloaded.`,
+        duration: 3000,
+      });
+    } catch (err) {
+      console.error("Export error:", err);
+      addToast({
+        type: 'error',
+        title: 'Download Failed',
+        message: 'Failed to download the export. Please try again.',
+        duration: 5000,
+      });
+    }
+  };
+  
   const resetFilters = () => {
     setFilters({
       dateRange: "all",
@@ -698,6 +766,13 @@ export default function DashboardPage() {
                 </Link>
               )}
               <Link
+                href="/batch-upload"
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium rounded-2xl transition-colors text-base"
+              >
+                <FileText size={18} className="text-[#2E86DE]" />
+                Batch Export
+              </Link>
+              <Link
                 href="/upload"
                 className="flex items-center gap-2 px-4 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-2xl transition-colors text-base"
               >
@@ -749,6 +824,14 @@ export default function DashboardPage() {
                     Admin
                   </Link>
                 )}
+                <Link
+                  href="/batch-upload"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-medium rounded-lg transition-colors border border-gray-200"
+                >
+                  <FileText size={20} className="text-[#2E86DE]" />
+                  Batch Export
+                </Link>
                 <Link
                   href="/upload"
                   onClick={() => setMobileMenuOpen(false)}
@@ -885,6 +968,79 @@ export default function DashboardPage() {
               </Link>
             </div>
           </div>
+
+         {/* Purchased Exports */}
+         {batchSessions.length > 0 && (
+           <div className="bg-white rounded-3xl p-6 border border-gray-200 mb-6">
+             <h2 className="text-xl font-semibold text-gray-900 mb-4">Purchased Exports</h2>
+             <div className="space-y-4">
+               {batchSessions.map((batchSession) => (
+                  <div key={batchSession.sessionId} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 rounded-xl gap-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-gray-900 break-all sm:truncate">Batch Export - {batchSession.sessionId}</p>
+                      <p className="text-sm text-gray-600">
+                        {batchSession.files.length} files • Paid on {batchSession.paidAt ? new Date(batchSession.paidAt).toLocaleDateString() : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => handleDownloadPurchasedExport('csv', batchSession.sessionId)}
+                        className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-[#10B981] hover:bg-[#059669] text-white font-medium rounded-xl transition-colors text-sm"
+                      >
+                        <Download size={16} />
+                        CSV
+                      </button>
+                      <button
+                        onClick={() => handleDownloadPurchasedExport('pdf', batchSession.sessionId)}
+                        className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-medium rounded-xl transition-colors text-sm"
+                      >
+                        <Download size={16} />
+                        PDF
+                      </button>
+                    </div>
+                  </div>
+               ))}
+             </div>
+           </div>
+         )}
+         
+         
+          {/* One-time Export Promotion for Free Users */}
+          {subscriptionTier === "free" && (
+            <div className="relative mb-6 overflow-hidden rounded-[32px] p-0.5 border border-white/20 shadow-xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#2E86DE]/10 via-[#8B5CF6]/10 to-[#2E86DE]/10 opacity-50 blur-xl animate-pulse"></div>
+              <div className="relative bg-white/80 backdrop-blur-xl rounded-[30px] p-6 border border-white/40 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex-1 text-center md:text-left">
+                  <div className="inline-flex items-center gap-2 px-2.5 py-0.5 bg-[#2E86DE] text-white text-[10px] font-bold uppercase tracking-wider rounded-full mb-3">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                    </span>
+                    One-Time Export
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: "Poppins, sans-serif" }}>
+                    Just need to export <span className="text-[#2E86DE]">these receipts?</span>
+                  </h3>
+                  <p className="text-gray-600 text-sm max-w-[480px]">
+                    No subscription needed. Process up to 10 receipts with AI and download your reports instantly for a one-time fee.
+                  </p>
+                </div>
+                <div className="flex items-center gap-4 bg-white/50 p-4 rounded-2xl border border-gray-100 min-w-[200px] justify-center md:justify-start">
+                  <div className="text-center">
+                    <div className="text-2xl font-black text-gray-900 leading-none">$3.99</div>
+                    <div className="text-[10px] text-gray-500 font-medium">ONE-TIME</div>
+                  </div>
+                  <div className="w-px h-8 bg-gray-200"></div>
+                  <Link 
+                    href="/batch-upload" 
+                    className="px-6 py-2 bg-[#2E86DE] hover:bg-[#2574C7] text-white text-sm font-bold rounded-xl shadow-lg transition-all hover:scale-[1.02]"
+                  >
+                    Get Started
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Enhanced Filters and Actions */}
           <div className="bg-white rounded-3xl p-4 md:p-6 border border-gray-200 mb-6">

@@ -308,6 +308,293 @@ export async function sendProcessingCompleteEmail(
   }
 }
 
+export async function sendBatchProcessingCompleteEmail(emailData: {
+  to: string;
+  fileCount: number;
+  sessionId: string;
+}): Promise<boolean> {
+  try {
+    const { to, fileCount, sessionId } = emailData;
+
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Batch Processing Complete</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+          }
+          .email-wrapper {
+            max-width: 600px;
+            margin: 0 auto;
+          }
+          .container {
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+          }
+          .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 48px 32px;
+            text-align: center;
+          }
+          .logo-container {
+            margin-bottom: 24px;
+          }
+          .logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: inline-block;
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 8px;
+          }
+          .logo img {
+            width: 100%;
+            height: 100%;
+            display: block;
+          }
+          .header-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 8px 0;
+            letter-spacing: -0.5px;
+          }
+          .header-subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.9);
+            margin: 0;
+          }
+          .content {
+            padding: 40px 32px;
+          }
+          .success-badge {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);
+          }
+          .intro-text {
+            font-size: 16px;
+            color: #4b5563;
+            margin-bottom: 32px;
+            line-height: 1.7;
+          }
+          .stats-card {
+            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+            border-radius: 12px;
+            padding: 28px;
+            margin: 32px 0;
+            border: 1px solid #e5e7eb;
+          }
+          .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .stat-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+          }
+          .stat-label {
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .stat-value {
+            color: #1f2937;
+            font-weight: 600;
+            font-size: 15px;
+            text-align: right;
+          }
+          .count-highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 24px;
+            font-weight: 700;
+          }
+          .info-text {
+            font-size: 15px;
+            color: #4b5563;
+            margin: 24px 0;
+            line-height: 1.7;
+          }
+          .cta-container {
+            text-align: center;
+            margin: 32px 0;
+          }
+          .cta-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            display: inline-block;
+            box-shadow: 0 10px 15px -3px rgba(102, 126, 234, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+          }
+          .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 20px -3px rgba(102, 126, 234, 0.5);
+          }
+          .footer {
+            background-color: #f9fafb;
+            padding: 32px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+          }
+          .footer-text {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 8px 0;
+            line-height: 1.6;
+          }
+          .footer-brand {
+            font-weight: 600;
+            color: #667eea;
+          }
+          @media (max-width: 600px) {
+            body {
+              padding: 20px 10px;
+            }
+            .header {
+              padding: 32px 24px;
+            }
+            .content {
+              padding: 32px 24px;
+            }
+            .header-title {
+              font-size: 24px;
+            }
+            .stat-row {
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 8px;
+            }
+            .stat-value {
+              text-align: left;
+            }
+            .stats-card {
+              padding: 20px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="email-wrapper">
+          <div class="container">
+            <div class="header">
+              <div class="logo-container">
+                <div class="logo">
+                  <img src="https://ucarecdn.com/6b43f5cf-10b4-4838-b2ba-397c0a896734/-/format/auto/" alt="ReimburseMe Logo" />
+                </div>
+              </div>
+              <h1 class="header-title">Batch Processing Complete!</h1>
+              <p class="header-subtitle">All your receipts have been processed</p>
+            </div>
+
+            <div class="content">
+              <div class="success-badge">
+                ✓ Batch Processing Successful
+              </div>
+
+              <p class="intro-text">
+                Great news! Your batch of receipts has been successfully processed. All files have been analyzed and the extracted data is ready for export.
+              </p>
+
+              <div class="stats-card">
+                <div class="stat-row">
+                  <span class="stat-label">Files Processed</span>
+                  <span class="stat-value count-highlight">${fileCount}</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">Batch ID</span>
+                  <span class="stat-value">${sessionId}</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">Status</span>
+                  <span class="stat-value">Ready for Export</span>
+                </div>
+              </div>
+
+              <p class="info-text">
+                You can now export your processed data as CSV or PDF. A one-time export fee of $3.99 applies for downloading the results.
+              </p>
+
+              <div class="cta-container">
+                <a href="${
+                  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+                }/batch-upload?session_id=${sessionId}" class="cta-button">
+                  View & Export Results →
+                </a>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p class="footer-text">
+                This email was sent from <span class="footer-brand">ReimburseMe</span>
+              </p>
+              <p class="footer-text">
+                Your smart receipt processing solution
+              </p>
+              <p class="footer-text" style="margin-top: 16px;">
+                Questions? Contact our support team anytime.
+              </p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: {
+        name: "ReimburseMe",
+        address: process.env.APP_EMAIL || "noreply@reimburseme.com",
+      },
+      to,
+      subject: "✓ Your batch processing is complete!",
+      html: emailHtml,
+    };
+
+    await transport.sendMail(mailOptions);
+    console.log("Batch processing complete email sent successfully to:", to);
+    return true;
+  } catch (error) {
+    console.error("Failed to send batch processing complete email:", error);
+    return false;
+  }
+}
+
 export async function sendProcessingFailedEmail(emailData: {
   to: string;
   fileName: string;

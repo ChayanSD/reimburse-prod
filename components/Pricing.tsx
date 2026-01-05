@@ -222,7 +222,48 @@ export default function Pricing() {
             ))}
           </div>
 
-          {/* Bottom note */}
+          {/* Highlighted One-time Export Promotion */}
+          <div className="relative mt-16 md:mt-24 max-w-4xl mx-auto overflow-hidden rounded-[32px] p-1 border border-white/20 shadow-2xl">
+            {/* Animated Gradient Background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#2E86DE]/20 via-[#8B5CF6]/20 to-[#2E86DE]/20 opacity-50 blur-xl animate-pulse"></div>
+            
+            <div className="relative bg-white/70 backdrop-blur-xl rounded-[30px] p-8 md:p-12 border border-white/40 flex flex-col md:flex-row items-center justify-between gap-8">
+              <div className="text-center md:text-left">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#2E86DE] text-white text-xs font-bold uppercase tracking-wider rounded-full mb-4">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                  </span>
+                  One-Time Special
+                </div>
+                <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4" style={{ fontFamily: "Poppins, sans-serif" }}>
+                  Just need the <span className="text-[#2E86DE]">results?</span>
+                </h3>
+                <p className="text-gray-600 text-lg max-w-[400px]">
+                  Process up to 10 receipts with AI precision and export as CSV/PDF instantly. 
+                  <span className="font-semibold block mt-1">No subscription. No commitment.</span>
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center justify-center p-8 bg-gradient-to-br from-white to-gray-50 rounded-3xl border border-gray-100 shadow-xl min-w-[280px]">
+                <div className="text-gray-500 line-through text-sm mb-1">$9.99 Value</div>
+                <div className="flex items-baseline gap-1 mb-6">
+                  <span className="text-5xl font-black text-gray-900" style={{ fontFamily: "Poppins, sans-serif" }}>$3.99</span>
+                  <span className="text-gray-500 font-medium">USD</span>
+                </div>
+                <Link 
+                  href="/batch-upload" 
+                  className="w-full text-center py-4 px-8 bg-[#2E86DE] hover:bg-[#2574C7] text-white font-bold rounded-2xl shadow-lg shadow-blue-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Start Batch Export
+                </Link>
+                <div className="mt-4 flex items-center gap-2 text-xs text-green-600 font-medium">
+                  <Check size={14} /> Instant Access • Secure Payment
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="text-center mt-12">
             <p className="text-gray-600">
               All plans include secure cloud storage and data encryption.

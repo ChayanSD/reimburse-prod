@@ -115,7 +115,8 @@ export function getSubscriptionLimits(tier: string): SubscriptionLimits {
 // Check if user can perform an action
 export async function checkSubscriptionLimit(
   userId: number,
-  feature: 'receipt_uploads' | 'report_exports' | 'email_ingestion' | 'team_collaboration' | 'analytics' | 'custom_branding' | 'csv_export' | 'priority_processing'
+  feature: 'receipt_uploads' | 'report_exports' | 'email_ingestion' | 'team_collaboration' | 'analytics' | 'custom_branding' | 'csv_export' | 'priority_processing',
+  count: number = 1
 ): Promise<{ allowed: boolean; reason?: string; upgradeRequired?: string; currentTier?: string }> {
   try {
     const subscription = await getUserSubscriptionInfo(userId);
@@ -143,7 +144,7 @@ export async function checkSubscriptionLimit(
     switch (feature) {
       case 'receipt_uploads':
         if (limits.maxReceipts === -1) return { allowed: true };
-        if (subscription.usageReceipts >= limits.maxReceipts) {
+        if (subscription.usageReceipts + count > limits.maxReceipts) {
           return {
             allowed: false,
             reason: `Upload limit reached (${limits.maxReceipts}). Upgrade to Pro for unlimited uploads.`,
@@ -241,7 +242,7 @@ export async function checkSubscriptionLimit(
 }
 
 // Increment usage counter
-export async function incrementUsage(userId: number, feature: 'receipt_uploads' | 'report_exports'): Promise<void> {
+export async function incrementUsage(userId: number, feature: 'receipt_uploads' | 'report_exports', count: number = 1): Promise<void> {
   try {
     const now = new Date();
     const resetDay = new Date(now.getFullYear(), now.getMonth(), 1); // First day of current month
@@ -254,12 +255,12 @@ export async function incrementUsage(userId: number, feature: 'receipt_uploads' 
         },
       },
       update: {
-        usageCount: { increment: 1 },
+        usageCount: { increment: count },
       },
       create: {
         userId,
         feature,
-        usageCount: 1,
+        usageCount: count,
         resetDate: now,
         resetDay,
       },
