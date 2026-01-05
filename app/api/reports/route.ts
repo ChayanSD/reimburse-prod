@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reportCreateSchema } from "@/validation/report.validation";
-import { generatePDF } from "@/utils/pdfGenerator";
+import { generateReactPDF as generatePDF } from "@/utils/reactPdfGenerator";
 import { checkSubscriptionLimit, getUserSubscriptionInfo, getSubscriptionLimits } from "@/lib/subscriptionGuard";
 import { badRequest, unauthorized, notFound, subscriptionLimitReached, handleDatabaseError, handleValidationError } from "@/lib/error";
 import prisma from "@/lib/prisma";
@@ -298,8 +298,7 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
         title
       );
 
-      // Generate PDF synchronously
-      // Note: This might take some time, ensure maxDuration is set high enough
+      // Generate PDF using React-PDF (Vercel-compatible)
       const pdfResult = await generatePDF(pdfData, { userId: userId.toString() });
       reportUrl = pdfResult.pdf_url;
       mimeType = "application/pdf";

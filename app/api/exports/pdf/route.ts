@@ -1,4 +1,4 @@
-import { generatePDF } from "@/utils/pdfGenerator";
+import { generateReactPDF as generatePDF } from "@/utils/reactPdfGenerator";
 import { ExpenseReportData } from "@/utils/htmlTemplates";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
