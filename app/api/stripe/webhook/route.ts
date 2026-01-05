@@ -85,14 +85,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   console.log("Processing checkout session completed:", session.id);
-  
+
   const userId = parseInt(session.metadata?.user_id || '0');
+  const type = session.metadata?.type;
   const plan = session.metadata?.plan;
   const billingCycle = session.metadata?.billing_cycle;
   const referralCode = session.metadata?.referral_code;
+  const batchSessionId = session.metadata?.batch_session_id;
 
-  if (!userId || !plan) {
-    console.error("Missing required metadata in checkout session");
+  if (!userId) {
+    console.error("Missing user_id in checkout session metadata");
+    return;
+  }
+
+  // Handle batch export payment
+  if (type === 'batch_export' && batchSessionId) {
+    try {
+      await prisma.batchSession.update({
+        where: {
+          sessionId: batchSessionId,
+          userId: userId,
+        },
+        data: {
+          paymentId: session.payment_intent as string,
+          paidAt: new Date(),
+        },
+      });
+
+      console.log(`Batch session ${batchSessionId} marked as paid for user ${userId}`);
+      return;
+    } catch (error) {
+      console.error("Error processing batch export payment:", error);
+      throw error;
+    }
+  }
+
+  // Handle subscription checkout
+  if (!plan) {
+    console.error("Missing required metadata in subscription checkout session");
     return;
   }
 

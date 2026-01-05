@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
-import { sendProcessingCompleteEmail, sendProcessingFailedEmail } from "@/lib/emailService";
+import { sendProcessingCompleteEmail, sendProcessingFailedEmail, sendBatchProcessingCompleteEmail } from "@/lib/emailService";
 import prisma from "@/lib/prisma";
 
 interface ProcessingCompleteData {
@@ -16,9 +16,14 @@ interface ProcessingFailedData {
   errorMessage?: string;
 }
 
+interface BatchProcessingCompleteData {
+  fileCount: number;
+  sessionId: string;
+}
+
 interface EmailQueueBody {
-  type: 'processing_complete' | 'processing_failed';
-  data: ProcessingCompleteData | ProcessingFailedData;
+  type: 'processing_complete' | 'processing_failed' | 'batch_processing_complete';
+  data: ProcessingCompleteData | ProcessingFailedData | BatchProcessingCompleteData;
   userId: number;
 }
 
@@ -39,7 +44,7 @@ async function handler(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    console.log("Processing queued email:", { type, userId, filename: data.fileName });
+    console.log("Processing queued email:", { type, userId });
 
     // Get user email from database
     const user = await prisma.authUser.findUnique({
@@ -77,6 +82,15 @@ async function handler(request: NextRequest): Promise<NextResponse> {
           to: user.email,
           fileName: failedData.fileName,
           errorMessage: failedData.errorMessage,
+        });
+        break;
+
+      case 'batch_processing_complete':
+        const batchData = data as BatchProcessingCompleteData;
+        emailSent = await sendBatchProcessingCompleteEmail({
+          to: user.email,
+          fileCount: batchData.fileCount,
+          sessionId: batchData.sessionId,
         });
         break;
 
