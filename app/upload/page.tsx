@@ -308,6 +308,11 @@ function UploadContent() {
     }, 120000);
   };
 
+  // Read teamId from URL
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const teamIdParam = searchParams?.get('teamId');
+  const teamId = teamIdParam ? parseInt(teamIdParam) : undefined;
+
   // Receipt saving mutation
   const saveReceiptMutation = useMutation({
     mutationFn: async (receiptData: {
@@ -317,13 +322,14 @@ function UploadContent() {
       amount: number;
       category: string;
       currency: string;
+      teamId?: number;
     }) => {
       const response = await axios.post("/api/receipts", receiptData);
       return response.data;
     },
     onSuccess: () => {
       setSuccess(true);
-      queryClient.invalidateQueries({ queryKey: ["receipts"] });
+      queryClient.invalidateQueries({ queryKey: ["receipts"] }); // This might need to invalidate team receipts too if query key differs
       // Reset form after 2 seconds
       setTimeout(() => {
         setUploadedFile(null);
@@ -338,33 +344,6 @@ function UploadContent() {
       setError(errorMessage);
     },
   });
-
-  // Event handlers with proper TypeScript types
-  const handleDrag = useCallback((e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback(async (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      await handleFileUpload(e.dataTransfer.files[0]);
-    }
-  }, []);
-
-  const handleFileSelect = useCallback(async (e: InputEvent) => {
-    if (e.target.files && e.target.files[0]) {
-      await handleFileUpload(e.target.files[0]);
-    }
-  }, []);
 
   // File upload handler
   const handleFileUpload = async (file: File) => {
@@ -438,6 +417,33 @@ function UploadContent() {
     }
   };
 
+  // Event handlers with proper TypeScript types
+  const handleDrag = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      await handleFileUpload(e.dataTransfer.files[0]);
+    }
+  }, []);
+
+  const handleFileSelect = useCallback(async (e: InputEvent) => {
+    if (e.target.files && e.target.files[0]) {
+      await handleFileUpload(e.target.files[0]);
+    }
+  }, []);
+
   // Save receipt handler
   const handleSaveReceipt = async () => {
     try {
@@ -472,6 +478,7 @@ function UploadContent() {
         amount,
         category: editedData.category,
         currency: editedData.currency!,
+        teamId,
       });
     } catch (err) {
       console.error("Save error:", err);

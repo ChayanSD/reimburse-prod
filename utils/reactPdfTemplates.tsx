@@ -53,6 +53,7 @@ export interface LineItem {
   converted_amount?: number;
   file_url?: string;
   policy_flag?: boolean;
+  submitted_by?: string;
 }
 
 export interface Branding {
@@ -258,22 +259,25 @@ const styles = StyleSheet.create({
     width: '12%',
   },
   colMerchant: { 
-    width: '20%',
+    width: '18%',
   },
   colCategory: { 
     width: '12%',
     flexDirection: 'row',
     alignItems: 'center',
   },
+  colUser: {
+    width: '15%',
+  },
   colNotes: { 
-    width: '20%',
+    width: '15%',
   },
   colAmount: { 
-    width: '18%', 
+    width: '15%', 
     textAlign: 'right',
   },
   colReceipt: {
-    width: '18%',
+    width: '13%',
     textAlign: 'center',
   },
   
@@ -472,6 +476,7 @@ export const ReimburseMePDFDocument: React.FC<{ data: ExpenseReportData }> = ({ 
             <Text style={[styles.tableHeaderCell, styles.colDate]}>Date</Text>
             <Text style={[styles.tableHeaderCell, styles.colMerchant]}>Merchant</Text>
             <Text style={[styles.tableHeaderCell, styles.colCategory]}>Category</Text>
+            <Text style={[styles.tableHeaderCell, styles.colUser]}>User</Text>
             <Text style={[styles.tableHeaderCell, styles.colNotes]}>Notes</Text>
             <Text style={[styles.tableHeaderCell, styles.colAmount]}>Amount</Text>
             <Text style={[styles.tableHeaderCell, styles.colReceipt]}>Receipt</Text>
@@ -491,6 +496,9 @@ export const ReimburseMePDFDocument: React.FC<{ data: ExpenseReportData }> = ({ 
               <View style={styles.colCategory}>
                 <Text style={styles.categoryBadge}>{item.category}</Text>
               </View>
+              <Text style={[styles.tableCell, styles.colUser]}>
+                {item.submitted_by || '-'}
+              </Text>
               <Text style={[styles.tableCell, styles.colNotes]}>
                 {item.notes || '-'}
               </Text>

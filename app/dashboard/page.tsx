@@ -22,6 +22,7 @@ import {
   LogOut,
   Menu,
   Mail,
+  Users,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -765,7 +766,7 @@ export default function DashboardPage() {
                   ReimburseMe
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-600">
-                  Welcome back, {getUserDisplayName(user as User)}
+                  {getUserDisplayName(user as User)}
                 </p>
               </div>
             </div>
@@ -780,6 +781,16 @@ export default function DashboardPage() {
                 <Settings size={18} />
                 Company Settings
               </Link>
+              {subscriptionTier === 'premium' && (
+                <Link
+                  href="/teams"
+                  className="flex items-center gap-2 text-gray-600 hover:text-gray-800 font-medium text-base"
+                  title="Manage Teams"
+                >
+                  <Users size={18} />
+                  Teams
+                </Link>
+              )}
               {(user as User)?.is_admin && (
                 <Link
                   href="/admin"
@@ -869,6 +880,16 @@ export default function DashboardPage() {
                   <FileText size={20} className="text-[#2E86DE]" />
                   Batch Export
                 </Link>
+                {subscriptionTier === 'premium' && (
+                  <Link
+                    href="/teams"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-medium rounded-lg transition-colors border border-gray-200"
+                  >
+                    <Users size={20} />
+                    Teams
+                  </Link>
+                )}
                 <Link
                   href="/upload"
                   onClick={() => setMobileMenuOpen(false)}

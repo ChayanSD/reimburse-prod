@@ -47,6 +47,10 @@ model AuthUser {
   referralsReceived  ReferralTracking[]  @relation("Referred")
   batchSessions      BatchSession[]
   processedEmails    ProcessedEmail[]
+  
+  // Team Relations
+  ownedTeams         Team[]
+  teamMemberships    TeamMember[]
 
   @@index([subscriptionTier], map: "idx_auth_users_subscription_tier")
   @@index([subscriptionStatus], map: "idx_auth_users_subscription_status")
@@ -76,11 +80,13 @@ model Receipt {
   needsReview  Boolean  @default(false) @map("needs_review")
   isDuplicate  Boolean  @default(false) @map("is_duplicate")
   confidence   Decimal? @db.Decimal(3, 2)
+  teamId       Int?     @map("team_id")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
   user  AuthUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team  Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
   items ReceiptItem[]
 
   @@index([userId], map: "idx_receipts_user_id")
@@ -88,6 +94,7 @@ model Receipt {
   @@index([category], map: "idx_receipts_category")
   @@index([merchantName], map: "idx_receipts_merchant")
   @@index([createdAt], map: "idx_receipts_created_at")
+  @@index([teamId], map: "idx_receipts_team_id")
   @@index([userId, receiptDate(sort: Desc)], map: "idx_receipts_user_date")
   @@index([userId, category], map: "idx_receipts_user_category")
   @@index([userId, merchantName, amount, receiptDate], map: "idx_receipts_duplicate_check")
@@ -105,15 +112,18 @@ model Report {
   receiptCount Int      @default(0) @map("receipt_count")
   pdfUrl       String?  @map("pdf_url") @db.Text
   csvUrl       String?  @map("csv_url") @db.Text
+  teamId       Int?     @map("team_id")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   // Relations
   user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([userId], map: "idx_reports_user_id")
   @@index([periodStart, periodEnd], map: "idx_reports_period")
   @@index([createdAt], map: "idx_reports_created_at")
+  @@index([teamId], map: "idx_reports_team_id")
   @@map("reports")
 }
 
@@ -149,6 +159,7 @@ model CompanySettings {
 model AuditLog {
   id        Int      @id @default(autoincrement())
   userId    Int?     @map("user_id")
+  teamId    Int?     @map("team_id")
   eventType String   @map("event_type") @db.VarChar(100)
   eventData Json?    @map("event_data") @db.JsonB
   ipAddress String?  @map("ip_address") @db.Inet
@@ -287,9 +298,75 @@ model ProcessedEmail {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   // Relations
+
+// Relations
   user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId], map: "idx_processed_emails_user_id")
   @@index([messageId], map: "idx_processed_emails_message_id")
   @@map("processed_emails")
+}
+
+// Team Collaboration Models
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model Team {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(255)
+  slug        String   @unique @db.VarChar(255)
+  ownerId     Int      @map("owner_id")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  owner       AuthUser     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members     TeamMember[]
+  invites     TeamInvite[]
+  receipts    Receipt[]
+  reports     Report[]
+
+  @@index([ownerId], map: "idx_teams_owner_id")
+  @@map("teams")
+}
+
+model TeamMember {
+  id        Int      @id @default(autoincrement())
+  teamId    Int      @map("team_id")
+  userId    Int      @map("user_id")
+  role      TeamRole @default(MEMBER)
+  joinedAt  DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  // Relations
+  team Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId], map: "idx_team_members_unique")
+  @@index([teamId], map: "idx_team_members_team_id")
+  @@index([userId], map: "idx_team_members_user_id")
+  @@map("team_members")
+}
+
+model TeamInvite {
+  id        Int      @id @default(autoincrement())
+  teamId    Int      @map("team_id")
+  email     String   @db.VarChar(255)
+  role      TeamRole @default(MEMBER)
+  token     String   @unique @db.Text
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  status    String   @default("pending") @db.VarChar(20) // pending, accepted, expired
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId], map: "idx_team_invites_team_id")
+  @@index([email], map: "idx_team_invites_email")
+  @@index([token], map: "idx_team_invites_token")
+  @@map("team_invites")
 }
