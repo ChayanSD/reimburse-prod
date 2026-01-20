@@ -10,6 +10,7 @@ export const receiptCreateSchema = z.object({
   category: z.enum(RECEIPT_CATEGORIES, { message: `Category must be one of: ${RECEIPT_CATEGORIES.join(", ")}` }),
   note: z.string().optional(),
   currency: z.string(),
+  teamId: z.number().int().optional(),
 });
 
 export const receiptUpdateSchema = z.object({

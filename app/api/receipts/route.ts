@@ -35,29 +35,52 @@ export async function GET(request : NextRequest) {
     const { searchParams } = new URL(request.url);
     
     // Parse and validate query parameters
+    const teamIdParam = searchParams.get("teamId");
     const queryParams = {
       page: parseInt(searchParams.get("page") || "1"),
       limit: parseInt(searchParams.get("limit") || "20"),
       from: searchParams.get("from") || undefined,
       to: searchParams.get("to") || undefined,
       category: searchParams.get("category") || undefined,
+      teamId: teamIdParam ? parseInt(teamIdParam) : undefined,
     };
 
-    const validation = paginationSchema.safeParse(queryParams);
+    const validation = paginationSchema.extend({ teamId: z.number().optional() }).safeParse(queryParams);
     if (!validation.success) {
       return handleValidationError(validation.error);
     }
 
-    const { page, limit, from, to, category } = validation.data;
+    const { page, limit, from, to, category, teamId } = validation.data;
     const offset = (page - 1) * limit;
 
-
     // Build where clause
-    const where: {
-      userId: number;
-      receiptDate?: { gte?: Date; lte?: Date };
-      category?: string;
-    } = { userId };
+    const where: any = {}; // Using any to simplify dynamic type construction
+
+    if (teamId) {
+      // Team View Logic
+      const member = await prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId, userId } },
+      });
+
+      if (!member) {
+         return NextResponse.json({ error: "Access denied to this team" }, { status: 403 });
+      }
+
+      where.teamId = teamId;
+
+      // Filter based on Role
+      if (['OWNER', 'ADMIN', 'VIEWER'].includes(member.role)) {
+         // See all receipts in team
+      } else {
+         // MEMBER see only own receipts
+         where.userId = userId;
+      }
+
+    } else {
+      // Personal View Logic
+      where.userId = userId;
+      where.teamId = null; // Strictly personal
+    }
 
     if (from) {
       where.receiptDate = { ...where.receiptDate, gte: new Date(from) };
@@ -79,19 +102,23 @@ export async function GET(request : NextRequest) {
       ],
       skip: offset,
       take: limit,
+      include: {
+        user: {
+             select: { firstName: true, lastName: true, email: true }
+        }
+      }
     });
 
     const total = await prisma.receipt.count({ where });
 
-    // Transform the data to match frontend interface (snake_case and correct types)
+    // Transform the data
     const transformedReceipts = receipts.map(receipt => ({
       id: receipt.id.toString(),
-      receipt_date: receipt.receiptDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+      receipt_date: receipt.receiptDate.toISOString().split('T')[0],
       merchant_name: receipt.merchantName,
       amount: receipt.amount.toString(),
       category: receipt.category,
       file_url: receipt.fileUrl,
-      // Include other fields that might be needed
       currency: receipt.currency,
       note: receipt.note,
       needs_review: receipt.needsReview,
@@ -99,6 +126,9 @@ export async function GET(request : NextRequest) {
       confidence: receipt.confidence?.toString() || null,
       created_at: receipt.createdAt.toISOString(),
       updated_at: receipt.updatedAt.toISOString(),
+      team_id: receipt.teamId,
+      user_name: receipt.user ? `${receipt.user.firstName} ${receipt.user.lastName}` : 'Unknown',
+      user_email: receipt.user?.email || 'Unknown',
     }));
 
     return NextResponse.json({ 
@@ -142,7 +172,18 @@ export async function POST(request: NextRequest) : Promise<NextResponse> {
       return handleValidationError(validation.error);
     }
 
-    const { file_url, merchant_name, receipt_date, amount, category, note, currency } = validation.data;
+    const { file_url, merchant_name, receipt_date, amount, category, note, currency, teamId } = validation.data;
+
+    // Team Permission Check
+    if (teamId) {
+      const member = await prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId, userId } },
+      });
+      // Need 'create_receipt' permission. Member role has it. Viewer doesn't.
+      if (!member || (member.role === 'VIEWER')) { // Using simple check or import can()
+          return NextResponse.json({ error: "Insufficient permissions to add receipts to this team" }, { status: 403 });
+      }
+    }
 
     // Check for existing OCR-processed receipt with the same file URL
     // If found, update it instead of creating a duplicate
@@ -167,6 +208,7 @@ export async function POST(request: NextRequest) : Promise<NextResponse> {
           currency,
           status: 'completed', // Mark as completed since user has reviewed and confirmed
           updatedAt: new Date(),
+          teamId: teamId || null,
         },
       });
     } else {
@@ -208,6 +250,7 @@ export async function POST(request: NextRequest) : Promise<NextResponse> {
           note: note || null,
           currency,
           status: 'completed',
+          teamId: teamId || null,
         },
       });
     }
@@ -221,6 +264,7 @@ export async function POST(request: NextRequest) : Promise<NextResponse> {
       merchant_name,
       amount,
       category,
+      team_id: teamId,
     });
 
     return NextResponse.json({ receipt }, { status: 201 });

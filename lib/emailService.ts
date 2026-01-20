@@ -595,6 +595,111 @@ export async function sendBatchProcessingCompleteEmail(emailData: {
   }
 }
 
+export async function sendTeamInviteEmail(emailData: {
+  to: string;
+  teamName: string;
+  inviterName: string;
+  inviteLink: string;
+}): Promise<boolean> {
+  try {
+    const { to, teamName, inviterName, inviteLink } = emailData;
+
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Team Invitation</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+          }
+          .email-wrapper { max-width: 600px; margin: 0 auto; }
+          .container {
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            padding: 40px 32px;
+            text-align: center;
+            background-color: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .logo { width: 48px; height: 48px; margin-bottom: 16px; }
+          .content { padding: 40px 32px; text-align: center; }
+          .invite-text { font-size: 18px; color: #374151; margin-bottom: 32px; }
+          .highlight { font-weight: 600; color: #111827; }
+          .cta-button {
+            background: #2E86DE;
+            color: white;
+            padding: 14px 28px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 32px;
+          }
+          .footer {
+            padding: 32px;
+            text-align: center;
+            background-color: #f9fafb;
+            color: #6b7280;
+            font-size: 14px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="email-wrapper">
+          <div class="container">
+            <div class="header">
+               <img src="https://ucarecdn.com/6b43f5cf-10b4-4838-b2ba-397c0a896734/-/format/auto/" alt="ReimburseMe" class="logo" />
+               <h1 style="font-size: 24px; font-weight: 700;">Join the Team!</h1>
+            </div>
+            <div class="content">
+              <p class="invite-text">
+                <span class="highlight">${inviterName}</span> has invited you to join the 
+                <span class="highlight">${teamName}</span> team on ReimburseMe.
+              </p>
+              <a href="${inviteLink}" class="cta-button">Accept Invitation</a>
+              <p style="font-size: 14px; color: #6b7280;">
+                If you don't have an account, you'll be able to create one and automatically join the team.
+              </p>
+            </div>
+            <div class="footer">
+              <p>ReimburseMe - Smart Expense Management</p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: {
+        name: "ReimburseMe",
+        address: process.env.APP_EMAIL || "noreply@reimburseme.com",
+      },
+      to,
+      subject: `Invitation to join ${teamName} on ReimburseMe`,
+      html: emailHtml,
+    };
+
+    await transport.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error("Failed to send invite email:", error);
+    return false;
+  }
+}
+
 export async function sendProcessingFailedEmail(emailData: {
   to: string;
   fileName: string;
