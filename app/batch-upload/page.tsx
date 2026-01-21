@@ -64,6 +64,15 @@ export default function BatchUploadPage() {
 function BatchUploadContent() {
   const { isLoading: userLoading } = useAuth();
   const [upload] = useUpload();
+  
+  // Get teamId from URL
+  const [teamId, setTeamId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tid = urlParams.get('teamId');
+    if (tid) setTeamId(tid);
+  }, []);
 
   // State management
   const [dragActive, setDragActive] = useState(false);
@@ -359,6 +368,7 @@ function BatchUploadContent() {
     try {
       const response = await axios.post(`/api/exports/${format}`, {
         batchSessionId: batchSession.sessionId,
+        teamId: teamId,
       }, {
         responseType: 'blob',
       });

@@ -390,11 +390,29 @@ function formatDate(dateStr: string): string {
   }
 }
 
-function formatCurrency(amount: number): string {
-  return amount.toLocaleString('en-US', {
+// Currency symbol mapping
+function getCurrencySymbol(currencyCode: string): string {
+  const symbols: Record<string, string> = {
+    'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'INR': '₹',
+    'CAD': 'C$', 'AUD': 'A$', 'CHF': 'CHF', 'CNY': '¥', 'KRW': '₩',
+    'BRL': 'R$', 'RUB': '₽', 'TRY': '₺', 'ILS': '₪', 'PLN': 'zł',
+    'SEK': 'kr', 'NOK': 'kr', 'DKK': 'kr', 'CZK': 'Kč', 'HUF': 'Ft',
+    'MXN': '$', 'ARS': '$', 'CLP': '$', 'COP': '$', 'AED': 'د.إ',
+    'SAR': '﷼', 'QAR': 'ر.ق', 'KWD': 'د.ك', 'BHD': '.د.ب', 'OMR': '﷼',
+    'JOD': 'د.ا', 'EGP': '£', 'MAD': 'د.م.', 'NGN': '₦', 'ZAR': 'R',
+    'SGD': 'S$', 'HKD': 'HK$', 'TWD': 'NT$', 'THB': '฿', 'MYR': 'RM',
+    'IDR': 'Rp', 'PHP': '₱', 'VND': '₫', 'NZD': 'NZ$',
+  };
+  return symbols[currencyCode] || '$';
+}
+
+function formatCurrency(amount: number, currencyCode: string = 'USD'): string {
+  const symbol = getCurrencySymbol(currencyCode);
+  const formatted = amount.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+  return `${symbol}${formatted}`;
 }
 
 // Main PDF component - professional and clear
@@ -454,7 +472,7 @@ export const ReimburseMePDFDocument: React.FC<{ data: ExpenseReportData }> = ({ 
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Total Amount</Text>
               <Text style={[styles.summaryValue, styles.summaryValueLarge]}>
-                ${formatCurrency(summary?.total_reimbursable || 0)}
+                {formatCurrency(summary?.total_reimbursable || 0, reportMeta.currency)}
               </Text>
             </View>
             <View style={styles.summaryItem}>
@@ -503,7 +521,7 @@ export const ReimburseMePDFDocument: React.FC<{ data: ExpenseReportData }> = ({ 
                 {item.notes || '-'}
               </Text>
               <Text style={[styles.tableCell, styles.colAmount, styles.amountValue]}>
-                ${formatCurrency(item.converted_amount || item.amount)}
+                {formatCurrency(item.converted_amount || item.amount, reportMeta.currency)}
               </Text>
               <View style={styles.colReceipt}>
                 {item.file_url ? (
@@ -532,13 +550,13 @@ export const ReimburseMePDFDocument: React.FC<{ data: ExpenseReportData }> = ({ 
                   ]}
                 >
                   <Text style={styles.categoryName}>{cat.category}</Text>
-                  <Text style={styles.categoryAmount}>${formatCurrency(cat.amount)}</Text>
+                  <Text style={styles.categoryAmount}>{formatCurrency(cat.amount, reportMeta.currency)}</Text>
                 </View>
               ))}
               <View style={styles.totalRow}>
                 <Text style={[styles.categoryName, styles.totalLabel]}>Total</Text>
                 <Text style={[styles.categoryAmount, styles.totalAmount]}>
-                  ${formatCurrency(summary.total_reimbursable)}
+                  {formatCurrency(summary.total_reimbursable, reportMeta.currency)}
                 </Text>
               </View>
             </View>

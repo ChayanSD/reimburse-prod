@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import Link from "next/link";
+import { SUPPORTED_CURRENCIES } from "@/lib/constants/currencies";
 
 // TypeScript interfaces
 interface CompanySetting {
@@ -45,6 +46,7 @@ interface CompanySetting {
   costCenter?: string;
   notes?: string;
   isDefault: boolean;
+  defaultCurrency: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -88,6 +90,7 @@ interface FormData {
   cost_center: string;
   notes: string;
   is_default: boolean;
+  default_currency: string;
   id?: number;
 }
 
@@ -147,6 +150,7 @@ export default function CompanySettingsPage() {
     cost_center: "",
     notes: "",
     is_default: false,
+    default_currency: "USD",
   });
 
   // Close mobile menu when clicking outside
@@ -255,6 +259,7 @@ export default function CompanySettingsPage() {
       cost_center: "",
       notes: "",
       is_default: false,
+      default_currency: "USD",
     });
     setEditingId(null);
     setValidationErrors({});
@@ -277,6 +282,7 @@ export default function CompanySettingsPage() {
       cost_center: setting.costCenter || "",
       notes: setting.notes || "",
       is_default: setting.isDefault,
+      default_currency: setting.defaultCurrency || "USD",
     });
     setEditingId(setting.id);
   };
@@ -360,6 +366,7 @@ export default function CompanySettingsPage() {
       cost_center: setting.costCenter || "",
       notes: setting.notes || "",
       is_default: true,
+      default_currency: setting.defaultCurrency || "USD",
       id: setting.id,
     };
 
@@ -815,6 +822,31 @@ export default function CompanySettingsPage() {
                       placeholder="CC-1001"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Default Currency *
+                  </label>
+                  <select
+                    value={formData.default_currency}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        default_currency: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2E86DE] focus:border-transparent"
+                  >
+                    {SUPPORTED_CURRENCIES.map((currency) => (
+                      <option key={currency.code} value={currency.code}>
+                        {currency.code} - {currency.name} ({currency.symbol})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    This currency will be used for OCR processing and PDF exports
+                  </p>
                 </div>
 
                 <div>

@@ -8,6 +8,7 @@ export const reportCreateSchema = z.object({
   include_items: z.boolean().default(true),
   format: z.enum(["pdf", "csv"]).default("pdf"),
   company_setting_id: z.number().int().positive().nullable().optional(),
+  team_id: z.number().int().positive().nullable().optional(),
 }).refine((data) => {
   const start = new Date(data.period_start);
   const end = new Date(data.period_end);

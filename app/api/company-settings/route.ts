@@ -39,6 +39,7 @@ export async function GET(): Promise<NextResponse> {
       costCenter: setting.costCenter,
       notes: setting.notes,
       isDefault: setting.isDefault,
+      defaultCurrency: setting.defaultCurrency,
       createdAt: setting.createdAt.toISOString(),
       updatedAt: setting.updatedAt.toISOString(),
     }));
@@ -137,6 +138,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           costCenter: validatedData.cost_center,
           notes: validatedData.notes,
           isDefault: validatedData.is_default,
+          defaultCurrency: validatedData.default_currency || "USD",
         },
       });
     } else {
@@ -157,6 +159,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           costCenter: validatedData.cost_center,
           notes: validatedData.notes,
           isDefault: validatedData.is_default,
+          defaultCurrency: validatedData.default_currency || "USD",
         },
       });
     }

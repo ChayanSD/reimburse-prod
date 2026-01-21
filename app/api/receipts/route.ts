@@ -5,6 +5,7 @@ import { z } from "zod";
 import { checkSubscriptionLimit, incrementUsage } from "@/lib/subscriptionGuard";
 import prisma from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@/app/generated/prisma/client";
 
 
 const paginationSchema = z.object({
@@ -68,11 +69,10 @@ export async function GET(request : NextRequest) {
 
       where.teamId = teamId;
 
-      // Filter based on Role
-      if (['OWNER', 'ADMIN', 'VIEWER'].includes(member.role)) {
+      // Filter based on Role - Everyone in the team can see all receipts now
+      if (['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'].includes(member.role)) {
          // See all receipts in team
       } else {
-         // MEMBER see only own receipts
          where.userId = userId;
       }
 

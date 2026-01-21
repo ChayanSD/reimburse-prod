@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "react-hot-toast";
 import { Spinner } from "@/components/ui/spinner";
 import useUser from "@/utils/useUser";
+import { SUPPORTED_CURRENCIES } from "@/lib/constants/currencies";
 
 interface Team {
   id: number;
@@ -31,6 +32,7 @@ export default function TeamsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamSlug, setNewTeamSlug] = useState("");
+  const [newTeamCurrency, setNewTeamCurrency] = useState("USD");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -57,7 +59,11 @@ export default function TeamsPage() {
       const res = await fetch("/api/teams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newTeamName, slug: newTeamSlug }),
+        body: JSON.stringify({ 
+          name: newTeamName, 
+          slug: newTeamSlug,
+          default_currency: newTeamCurrency 
+        }),
       });
 
       if (!res.ok) {
@@ -230,6 +236,24 @@ export default function TeamsPage() {
                             placeholder="acme-corp"
                             required
                         />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="currency">Default Currency</Label>
+                        <select
+                            id="currency"
+                            value={newTeamCurrency}
+                            onChange={(e) => setNewTeamCurrency(e.target.value)}
+                            className="w-full flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {SUPPORTED_CURRENCIES.map((currency) => (
+                                <option key={currency.code} value={currency.code}>
+                                    {currency.code} - {currency.name} ({currency.symbol})
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-[0.8rem] text-muted-foreground">
+                            This currency will be used for reports and batch exports within this team.
+                        </p>
                     </div>
                     <Button type="submit" className="w-full bg-[#2E86DE] hover:bg-[#2574C7] text-white">Create Team</Button>
                 </form>
