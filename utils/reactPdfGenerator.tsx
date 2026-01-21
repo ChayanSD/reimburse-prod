@@ -1,6 +1,6 @@
 import { pdf } from '@react-pdf/renderer';
 import { ReimburseMePDFDocument } from './reactPdfTemplates';
-import { ExpenseReportData } from './htmlTemplates';
+import { ExpenseReportData } from './reactPdfTemplates';
 
 export interface GeneratePDFOptions {
   paperSize?: string;
