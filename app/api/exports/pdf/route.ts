@@ -1,5 +1,5 @@
 import { generateReactPDF as generatePDF } from "@/utils/reactPdfGenerator";
-import { ExpenseReportData } from "@/utils/htmlTemplates";
+import { ExpenseReportData } from "@/utils/reactPdfTemplates";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/session";

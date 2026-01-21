@@ -339,7 +339,6 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
     // Check if it's a PDF generation error
     if (error instanceof Error && (
       error.message.includes("PDF") || 
-      error.message.includes("PDFShift") ||
       error.message.includes("generatePDF")
     )) {
       return NextResponse.json(
