@@ -6,6 +6,7 @@ import { getSession } from "@/lib/session";
 const createTeamSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   slug: z.string().min(3, "Slug must be at least 3 characters").regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with hyphens"),
+  default_currency: z.string().length(3).optional().default("USD"),
 });
 
 export async function GET(req: NextRequest) {
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
           name,
           slug,
           ownerId: session.id,
+          defaultCurrency: body.default_currency || "USD",
         },
       });
 

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "react-hot-toast";
+import { SUPPORTED_CURRENCIES } from "@/lib/constants/currencies";
 import { 
     AlertDialog, 
     AlertDialogAction, 
@@ -23,6 +24,7 @@ export default function TeamSettingsPage() {
     const { teamId } = useParams();
     const router = useRouter();
     const [teamName, setTeamName] = useState("");
+    const [teamCurrency, setTeamCurrency] = useState("USD");
     const [loading, setLoading] = useState(true);
     const [role, setRole] = useState("");
 
@@ -33,6 +35,7 @@ export default function TeamSettingsPage() {
                 if (!res.ok) throw new Error("Failed to load team");
                 const data = await res.json();
                 setTeamName(data.team.name);
+                setTeamCurrency(data.team.defaultCurrency || "USD");
                 setRole(data.role);
             } catch (error) {
                 toast.error("Error loading team settings");
@@ -43,23 +46,26 @@ export default function TeamSettingsPage() {
         fetchTeam();
     }, [teamId]);
 
-    const handleUpdateName = async (e: React.FormEvent) => {
+    const handleUpdateSettings = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             const res = await fetch(`/api/teams/${teamId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: teamName }),
+                body: JSON.stringify({ 
+                    name: teamName,
+                    default_currency: teamCurrency
+                }),
             });
             
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || "Failed to update name");
+                throw new Error(err.error || "Failed to update settings");
             }
 
-            toast.success("Team name updated");
+            toast.success("Team settings updated");
         } catch (error: any) {
-            toast.error(error.message || "Failed to update team name");
+            toast.error(error.message || "Failed to update team settings");
         }
     };
 
@@ -99,9 +105,9 @@ export default function TeamSettingsPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Team Profile</CardTitle>
-                    <CardDescription>Update your team's name and identity.</CardDescription>
+                    <CardDescription>Update your team's name and currency.</CardDescription>
                 </CardHeader>
-                <form onSubmit={handleUpdateName}>
+                <form onSubmit={handleUpdateSettings}>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="teamName">Team Name</Label>
@@ -113,8 +119,27 @@ export default function TeamSettingsPage() {
                                 placeholder="Enter team name"
                                 required
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="currency">Default Currency</Label>
+                            <select
+                                id="currency"
+                                value={teamCurrency}
+                                onChange={(e) => setTeamCurrency(e.target.value)}
+                                disabled={!isOwner}
+                                className="w-full h-10 px-3 py-2 text-sm border rounded-md"
+                            >
+                                {SUPPORTED_CURRENCIES.map((currency) => (
+                                    <option key={currency.code} value={currency.code}>
+                                        {currency.code} - {currency.name} ({currency.symbol})
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-muted-foreground">
+                                This currency will be used for all reports and batch exports generated for this team.
+                            </p>
                             {!isOwner && (
-                                <p className="text-xs text-muted-foreground">Only the team owner can change the team name.</p>
+                                <p className="text-xs text-muted-foreground">Only the team owner can change these settings.</p>
                             )}
                         </div>
                     </CardContent>

@@ -41,6 +41,7 @@ function convertToPDFFormat(
   companySetting: CompanySettings | null = null,
   periodEnd: string | null = null,
   title: string | null = null,
+  team: any | null = null,
 ) {
   // Use provided period or generate from month
   const startDate = periodStart || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`;
@@ -102,7 +103,7 @@ function convertToPDFFormat(
       report_id: reportId,
       timezone: "America/Chicago",
       locale: "en-US",
-      currency: "USD",
+      currency: team?.defaultCurrency || companySetting?.defaultCurrency || "USD",
     },
     submitter: {
       name: fullName,
@@ -112,9 +113,9 @@ function convertToPDFFormat(
       employee_id: `EMP-${user.id}`,
     },
     recipient: {
-      company_name: companySetting?.companyName || "Company Name",
-      approver_name: companySetting?.approverName || "Manager",
-      approver_email: companySetting?.approverEmail || "manager@company.com",
+      company_name: team?.name || companySetting?.companyName || "Company Name",
+      approver_name: team?.owner ? `${team.owner.firstName || ''} ${team.owner.lastName || ''}`.trim() : (companySetting?.approverName || "Manager"),
+      approver_email: team?.owner?.email || companySetting?.approverEmail || "manager@company.com",
       address_lines: address_lines,
     },
     branding: {
@@ -207,7 +208,7 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
       return handleValidationError(validation.error);
     }
 
-    const { receipt_ids, period_start, period_end, title, format, company_setting_id } = validation.data;
+    const { receipt_ids, period_start, period_end, title, format, company_setting_id, team_id } = validation.data;
 
     // Fetch user data with first_name and last_name
     const user = await prisma.authUser.findUnique({
@@ -217,6 +218,18 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
 
     if (!user) {
       return notFound("User not found");
+    }
+
+    // Get team info if specified
+    let team = null;
+    if (team_id) {
+       team = await prisma.team.findFirst({
+         where: { 
+           id: team_id,
+           members: { some: { userId: userId } }
+         },
+         include: { owner: true }
+       });
     }
 
     // Get receipts by IDs with proper user scoping
@@ -295,7 +308,8 @@ export async function POST(request : NextRequest) : Promise<NextResponse>{
         user,
         companySetting,
         period_end,
-        title
+        title,
+        team
       );
 
       // Generate PDF using React-PDF (Vercel-compatible)

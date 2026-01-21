@@ -131,7 +131,10 @@ export async function DELETE(request: NextRequest) : Promise<NextResponse> {
     const deletedReceipt = await prisma.receipt.deleteMany({
       where: {
         id: receiptId,
-        userId,
+        OR: [
+          { userId: userId },
+          { team: { ownerId: userId } }
+        ]
       },
     });
 

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const body = await request.json();
-    const { batchSessionId } = body;
+    const { batchSessionId, teamId } = body;
 
     let expenseData: ExpenseReportData;
 
@@ -78,6 +78,56 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         },
       });
 
+      let defaultCurrency = "USD";
+      let companyName = "Batch Export";
+      let approverName = "System";
+      let approverEmail = "system@reimburseme.ai";
+
+      // If teamId is provided, use team settings
+      if (teamId) {
+        const team = await prisma.team.findFirst({
+          where: { 
+            id: parseInt(teamId),
+            members: { some: { userId: session.id } }
+          },
+          select: { 
+            defaultCurrency: true, 
+            name: true,
+            owner: {
+              select: { firstName: true, lastName: true, email: true }
+            }
+          }
+        });
+
+        if (team) {
+          defaultCurrency = team.defaultCurrency || "USD";
+          companyName = team.name;
+          approverName = `${team.owner.firstName || ''} ${team.owner.lastName || ''}`.trim() || 'Team Owner';
+          approverEmail = team.owner.email;
+        }
+      } else {
+        // Fallback to user's default company settings
+        const companySetting = await prisma.companySettings.findFirst({
+          where: {
+            userId: session.id,
+            isDefault: true,
+          },
+          select: {
+            defaultCurrency: true,
+            companyName: true,
+            approverName: true,
+            approverEmail: true,
+          },
+        });
+
+        if (companySetting) {
+          defaultCurrency = companySetting.defaultCurrency || "USD";
+          companyName = companySetting.companyName || companyName;
+          approverName = companySetting.approverName || approverName;
+          approverEmail = companySetting.approverEmail || approverEmail;
+        }
+      }
+
       const files: Array<{
         id: string;
         url: string;
@@ -106,7 +156,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           description: `Receipt ${index + 1}`,
           category: file.extractedData.category,
           amount: amount,
-          currency: file.extractedData.currency || "USD",
+          currency: file.extractedData.currency || defaultCurrency,
           file_url: file.url,
         };
       });
@@ -122,15 +172,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           period_start: completedFiles.length > 0 ? completedFiles[0].extractedData.receipt_date : new Date().toISOString().split('T')[0],
           period_end: completedFiles.length > 0 ? completedFiles[completedFiles.length - 1].extractedData.receipt_date : new Date().toISOString().split('T')[0],
           generated_at: new Date().toISOString(),
+          currency: defaultCurrency, // Add currency to reportMeta
         },
         submitter: {
           name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User',
           email: user?.email || session.email,
         },
         recipient: {
-          company_name: "Batch Export",
-          approver_name: "System",
-          approver_email: "system@reimburseme.ai",
+          company_name: companyName,
+          approver_name: approverName,
+          approver_email: approverEmail,
         },
         summary: {
           total_reimbursable: totalAmount,

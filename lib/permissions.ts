@@ -57,7 +57,18 @@ export async function getTeamMember(userId: number, teamId: number) {
       },
     },
     include: {
-      team: true,
+      team: {
+        include: {
+          owner: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      },
     },
   });
 }

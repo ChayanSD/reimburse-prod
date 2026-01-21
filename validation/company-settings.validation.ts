@@ -16,6 +16,7 @@ export const companySettingsSchema = z.object({
   cost_center: z.string().optional(),
   notes: z.string().optional(),
   is_default: z.boolean().default(false),
+  default_currency: z.string().length(3, "Currency code must be 3 characters").default("USD"),
 });
 
 // Type inference from schema

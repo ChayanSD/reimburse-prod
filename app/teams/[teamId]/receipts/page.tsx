@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, Eye, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -34,33 +34,45 @@ interface Receipt {
   user_name: string;
   user_email?: string;
   note?: string;
+  file_url?: string;
 }
 
 export default function TeamReceiptsPage() {
   const { teamId } = useParams();
   const router = useRouter();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [team, setTeam] = useState<any>(null);
   const [selectedReceipts, setSelectedReceipts] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
-  const fetchReceipts = useCallback(async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`/api/receipts?teamId=${teamId}`);
-      if (!res.ok) throw new Error("Failed");
-      const data = await res.json();
-      setReceipts(data.receipts);
+      const [receiptsRes, teamRes] = await Promise.all([
+        fetch(`/api/receipts?teamId=${teamId}`),
+        fetch(`/api/teams/${teamId}`)
+      ]);
+
+      if (!receiptsRes.ok) throw new Error("Failed to load receipts");
+      if (!teamRes.ok) throw new Error("Failed to load team details");
+
+      const receiptsData = await receiptsRes.json();
+      const teamData = await teamRes.json();
+
+      setReceipts(receiptsData.receipts);
+      setTeam(teamData.team);
     } catch (error) {
        console.error(error);
-       toast.error("Failed to load receipts");
+       toast.error("Failed to load data");
     } finally {
         setLoading(false);
     }
   }, [teamId]);
 
   useEffect(() => {
-    fetchReceipts();
-  }, [fetchReceipts]);
+    fetchData();
+  }, [fetchData]);
 
   const toggleSelectAll = () => {
     if (selectedReceipts.size === receipts.length) {
@@ -114,16 +126,16 @@ export default function TeamReceiptsPage() {
           period_start: dataToExport[dataToExport.length - 1]?.receipt_date || new Date().toISOString(),
           period_end: dataToExport[0]?.receipt_date || new Date().toISOString(),
           generated_at: new Date().toISOString(),
-          currency: dataToExport[0]?.currency || "USD",
+          currency: team?.defaultCurrency || dataToExport[0]?.currency || "USD",
         },
         submitter: {
           name: "Team Export",
           email: "Team Admin",
         },
         recipient: {
-          company_name: `Team #${teamId}`,
-          approver_name: "Admin",
-          approver_email: "",
+          company_name: team?.name || `Team #${teamId}`,
+          approver_name: team?.owner ? `${team.owner.firstName || ""} ${team.owner.lastName || ""}`.trim() : "Admin",
+          approver_email: team?.owner?.email || "",
         },
         summary: {
           total_reimbursable: dataToExport.reduce((sum, r) => sum + parseFloat(r.amount), 0),
@@ -136,7 +148,8 @@ export default function TeamReceiptsPage() {
           category: r.category,
           amount: parseFloat(r.amount),
           notes: r.note,
-          submitted_by: r.user_name
+          submitted_by: r.user_name,
+          file_url: r.file_url,
         })),
       };
 
@@ -211,12 +224,13 @@ export default function TeamReceiptsPage() {
                         <TableHead>Category</TableHead>
                         <TableHead>Submitted By</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-center w-[80px]">Receipt</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {receipts.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                            <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                                 No receipts found for this team.
                             </TableCell>
                         </TableRow>
@@ -241,6 +255,22 @@ export default function TeamReceiptsPage() {
                                 </TableCell>
                                 <TableCell className="text-right font-mono">
                                     {receipt.amount} {receipt.currency}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                    {receipt.file_url ? (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            asChild
+                                            title="View Original Receipt"
+                                        >
+                                            <a href={receipt.file_url} target="_blank" rel="noopener noreferrer">
+                                                <Eye className="h-4 w-4 text-[#2E86DE]" />
+                                            </a>
+                                        </Button>
+                                    ) : (
+                                        <FileText className="h-4 w-4 text-muted-foreground mx-auto opacity-20" />
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))

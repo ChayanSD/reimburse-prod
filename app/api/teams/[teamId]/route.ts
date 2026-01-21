@@ -6,6 +6,7 @@ import { can, getTeamMember } from "@/lib/permissions";
 
 const updateTeamSchema = z.object({
   name: z.string().min(3).optional(),
+  default_currency: z.string().length(3).optional(),
 });
 
 // GET /api/teams/[teamId] - Get team details
@@ -55,16 +56,28 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { name } = updateTeamSchema.parse(body);
+    const { name, default_currency } = updateTeamSchema.parse(body);
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (default_currency !== undefined) updateData.defaultCurrency = default_currency;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "No changes provided" }, { status: 400 });
+    }
 
     const updatedTeam = await prisma.team.update({
       where: { id: tid },
-      data: { name },
+      data: updateData,
     });
 
     return NextResponse.json({ team: updatedTeam });
-  } catch (error) {
-     return NextResponse.json({ error: "Failed to update team" }, { status: 500 });
+  } catch (error: any) {
+    console.error("PATCH /api/teams/[teamId] error:", error);
+    return NextResponse.json({ 
+      error: "Failed to update team",
+      details: error.message || String(error)
+    }, { status: 500 });
   }
 }
 

@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../app/generated/prisma"
 }
 
@@ -129,23 +129,24 @@ model Report {
 
 // Company settings table
 model CompanySettings {
-  id            Int      @id @default(autoincrement())
-  userId        Int      @map("user_id")
-  companyName   String   @map("company_name") @db.VarChar(255)
-  addressLine1  String?  @map("address_line_1") @db.VarChar(255)
-  addressLine2  String?  @map("address_line_2") @db.VarChar(255)
-  city          String?  @db.VarChar(100)
-  state         String?  @db.VarChar(50)
-  zipCode       String?  @map("zip_code") @db.VarChar(20)
-  country       String   @default("United States") @db.VarChar(100)
-  approverName  String?  @map("approver_name") @db.VarChar(255)
-  approverEmail String?  @map("approver_email") @db.VarChar(255)
-  department    String?  @db.VarChar(100)
-  costCenter    String?  @map("cost_center") @db.VarChar(100)
-  notes         String?  @db.Text
-  isDefault     Boolean  @default(false) @map("is_default")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  companyName     String   @map("company_name") @db.VarChar(255)
+  addressLine1    String?  @map("address_line_1") @db.VarChar(255)
+  addressLine2    String?  @map("address_line_2") @db.VarChar(255)
+  city            String?  @db.VarChar(100)
+  state           String?  @db.VarChar(50)
+  zipCode         String?  @map("zip_code") @db.VarChar(20)
+  country         String   @default("United States") @db.VarChar(100)
+  approverName    String?  @map("approver_name") @db.VarChar(255)
+  approverEmail   String?  @map("approver_email") @db.VarChar(255)
+  department      String?  @db.VarChar(100)
+  costCenter      String?  @map("cost_center") @db.VarChar(100)
+  notes           String?  @db.Text
+  isDefault       Boolean  @default(false) @map("is_default")
+  defaultCurrency String   @default("USD") @map("default_currency") @db.VarChar(3)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
   user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -317,12 +318,13 @@ enum TeamRole {
 }
 
 model Team {
-  id          Int      @id @default(autoincrement())
-  name        String   @db.VarChar(255)
-  slug        String   @unique @db.VarChar(255)
-  ownerId     Int      @map("owner_id")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id              Int      @id @default(autoincrement())
+  name            String   @db.VarChar(255)
+  slug            String   @unique @db.VarChar(255)
+  ownerId         Int      @map("owner_id")
+  defaultCurrency String   @default("USD") @map("default_currency") @db.VarChar(3)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
   owner       AuthUser     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
